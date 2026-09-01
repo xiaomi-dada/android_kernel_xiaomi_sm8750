@@ -288,6 +288,7 @@ struct mca_wireless_quick_charge_process_data {
 	int vbus;
 	int ibus;
 	int temp_para_index[FG_IC_MAX];
+	bool zone_changed;
 	int cur_stage[FG_IC_MAX];
 	int parall_cur_stage[FG_SITE_MAX];
 	int ffc_flag;

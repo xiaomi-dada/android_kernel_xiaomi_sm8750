@@ -1167,8 +1167,11 @@ static void mca_wireless_quick_charge_select_stage(struct mca_wireless_quick_cha
 
 		stage = mca_wireless_quick_charge_jump_stage(stage, info->proc_data.cur_volt_para[i]);
 		ffc_flag = strategy_class_fg_get_fastcharge();
-		if (stage > info->proc_data.cur_stage[i] || (ffc_flag != info->proc_data.ffc_flag))
+		if (stage > info->proc_data.cur_stage[i] || (ffc_flag != info->proc_data.ffc_flag) ||
+			info->proc_data.zone_changed) {
 			info->proc_data.cur_stage[i] = stage;
+			info->proc_data.zone_changed = false;
+		}
 		i++;
 	};
 
@@ -1305,6 +1308,7 @@ static int mca_wireless_quick_charge_can_tbat_do_charge(unsigned int role,
 	}
 
 	info->proc_data.temp_para_index[role] = i;
+	info->proc_data.zone_changed = true;
 	info->proc_data.temp_max_cur[role] = temp_para->max_current;
 	mca_log_info("temp_para_index=%d, max_cur=%d\n", i, temp_para->max_current);
 	if (batt_para->temp_info[i].volt_ffc_info.volt_para_size) {
