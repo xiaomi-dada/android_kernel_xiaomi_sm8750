@@ -2109,8 +2109,20 @@ out:
 	return ret;
 }
 
-static int cs_dsp_load_coeff(struct cs_dsp *dsp, const struct firmware *firmware,
-			     const char *file)
+/**
+ * cs_dsp_load_coeff() - Load a coefficient file onto a running DSP
+ * @dsp: pointer to DSP structure
+ * @firmware: the coefficient file
+ * @file: name of the file, for logging
+ *
+ * The caller must hold pwr_lock.  This is what a codec driver calls to put a
+ * tuning on top of firmware that is already loaded, rather than reloading
+ * everything through cs_dsp_power_up().
+ *
+ * Return: Zero for success, a negative number on error.
+ */
+int cs_dsp_load_coeff(struct cs_dsp *dsp, const struct firmware *firmware,
+		      const char *file)
 {
 	LIST_HEAD(buf_list);
 	struct regmap *regmap = dsp->regmap;
@@ -2723,6 +2735,8 @@ err_mutex:
 	return ret;
 }
 EXPORT_SYMBOL_NS_GPL(cs_dsp_power_up, FW_CS_DSP);
+
+EXPORT_SYMBOL_NS_GPL(cs_dsp_load_coeff, FW_CS_DSP);
 
 /**
  * cs_dsp_power_down() - Powers-down the DSP

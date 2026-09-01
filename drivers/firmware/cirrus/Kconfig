@@ -1,5 +1,13 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
 config FW_CS_DSP
-	tristate
+	tristate "Cirrus Logic DSP firmware support"
 	default n
+	help
+	  Firmware loading and control for the Cirrus Logic DSP cores found
+	  in their audio codecs.  In-tree codec drivers select this; say M
+	  here only to build it for a codec driver that lives outside the
+	  tree, which is how the CS35L43 amplifiers on some boards are
+	  driven.
+
+	  If unsure, say N.

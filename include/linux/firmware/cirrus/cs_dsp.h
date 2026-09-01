@@ -223,6 +223,8 @@ int cs_dsp_power_up(struct cs_dsp *dsp,
 		    const struct firmware *coeff_firmware, char *coeff_filename,
 		    const char *fw_name);
 void cs_dsp_power_down(struct cs_dsp *dsp);
+int cs_dsp_load_coeff(struct cs_dsp *dsp, const struct firmware *firmware,
+		      const char *file);
 int cs_dsp_run(struct cs_dsp *dsp);
 void cs_dsp_stop(struct cs_dsp *dsp);
 
