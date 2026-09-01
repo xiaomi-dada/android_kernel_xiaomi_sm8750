@@ -321,8 +321,12 @@ static bool mca_charger_thermal_ignore(void)
 	struct timespec64 ts;
 	u32 is_zero_speed = 0;
 
-	ts = ns_to_timespec64(ktime_get_with_offset(TK_OFFS_REAL));
-	if (ts.tv_sec > MCA_THERMAL_BOOT_WINDOW_SEC)
+	/*
+	 * Time since boot, not since the epoch: this is an "are we still
+	 * starting up" test, and against the wall clock it can never be true.
+	 */
+	ts = ns_to_timespec64(ktime_get_with_offset(TK_OFFS_BOOT));
+	if (ts.tv_sec >= MCA_THERMAL_BOOT_WINDOW_SEC)
 		return false;
 
 	get_smem_battery_info(&is_zero_speed);
