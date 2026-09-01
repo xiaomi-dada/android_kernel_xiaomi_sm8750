@@ -3491,6 +3491,12 @@ static int strategy_buckchg_class_probe(struct platform_device *pdev)
 
 	mca_vote(info->input_voltage_voter, "batt_auth", true, 0);
 	mca_vote(info->charge_limit_voter, "batt_auth", true, info->chg_batt_auth_failed);
+	/*
+	 * Hold the float voltage down until a battery-present event proves
+	 * there is a pack to charge.  Without this the voter starts at its
+	 * registration default, which is the full JEITA float voltage.
+	 */
+	mca_vote(info->vterm_voter, "batt_miss", true, STAEGY_BATT_MISS_FV);
 	info->proc_data.voltage = STATEGY_CHARGE_VBUS_5V;
 	info->hvdcp_allow_flag = 0;
 	info->vbat_ov_count = 0;
