@@ -47,6 +47,9 @@
 #include <linux/usb/redriver.h>
 #include <linux/usb/composite.h>
 #include <linux/soc/qcom/wcd939x-i2c.h>
+#include <linux/regmap.h>
+#include <linux/i2c.h>
+#include "../../soc/qcom/wcd-usbss-registers.h"
 #include <linux/usb/repeater.h>
 
 #include "core.h"
@@ -656,6 +659,14 @@ struct dwc3_msm {
 	bool			has_orientation_gpio;
 
 	bool			wcd_usbss;
+	/*
+	 * The USB-C switch's high-speed equaliser, and the settings this board
+	 * wants for it.  The switch sits between the connector and the PHY, so
+	 * the right setting differs between sourcing and sinking.
+	 */
+	struct regmap		*wcd_regmap;
+	u32			wcd_equ;
+	u32			wcd_equ_host;
 	bool			dynamic_disable;
 
 	struct dentry		*dbg_dir;
@@ -6194,6 +6205,52 @@ static int dwc3_msm_parse_params(struct dwc3_msm *mdwc, struct device_node *node
 		mdwc->wcd_usbss = true;
 	of_node_put(wcd_node);
 
+	of_property_read_u32(node, "wcd_equ", &mdwc->wcd_equ);
+	of_property_read_u32(node, "wcd_equ_host", &mdwc->wcd_equ_host);
+	dev_info(dev, "setting wcd_equ is %x, wcd_equ_host is %x\n",
+		 mdwc->wcd_equ, mdwc->wcd_equ_host);
+
+	return 0;
+}
+
+/* Reach the USB-C switch's register map through the i2c device behind it. */
+static int dwc3_msm_get_wcd_info(struct dwc3_msm *mdwc, struct device_node *node)
+{
+	struct device_node *wcd_node;
+	struct device *dev = mdwc->dev;
+	struct i2c_client *client = NULL;
+
+	wcd_node = of_parse_phandle(node, "qcom,wcd_usbss", 0);
+	if (of_device_is_available(wcd_node))
+		client = of_find_i2c_device_by_node(wcd_node);
+	of_node_put(wcd_node);
+	if (!client) {
+		dev_err(dev, "wcd i2c client device can not be find\n");
+		return -EPROBE_DEFER;
+	}
+
+	mdwc->wcd_regmap = dev_get_regmap(&client->dev, NULL);
+	if (!mdwc->wcd_regmap) {
+		dev_err(dev, "wcd regmap get failed\n");
+		return -1;
+	}
+
+	return 0;
+}
+
+/*
+ * The equaliser has to be set again every time the switch is pointed at USB,
+ * because the switch driver returns it to its own default each time.
+ */
+static int dwc3_msm_update_wcd_usbss_regmap(struct dwc3_msm *mdwc)
+{
+	if (!mdwc->wcd_regmap)
+		return 0;
+
+	regmap_write(mdwc->wcd_regmap, WCD_USBSS_EQUALIZER1,
+		     dwc3_msm_get_role(mdwc) == USB_ROLE_HOST ?
+			     mdwc->wcd_equ_host : mdwc->wcd_equ);
+
 	return 0;
 }
 
@@ -6477,6 +6534,16 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	ret = dwc3_msm_parse_params(mdwc, node);
 	if (ret < 0)
 		goto err;
+
+	/*
+	 * Only where the board has the switch: elsewhere there is no i2c device
+	 * to reach and the equaliser is not ours to set.
+	 */
+	if (mdwc->wcd_usbss) {
+		ret = dwc3_msm_get_wcd_info(mdwc, node);
+		if (ret)
+			goto err;
+	}
 
 	mdwc->sleep_clk_bcr = of_property_read_bool(node, "qcom,sleep-clk-bcr");
 
@@ -6841,9 +6908,12 @@ static int dwc3_msm_host_notifier(struct notifier_block *nb,
 				dwc3_msm_update_bus_bw(mdwc, BUS_VOTE_SVS);
 				dwc3_msm_host_ss_powerdown(mdwc);
 
-				if (mdwc->wcd_usbss)
+				if (mdwc->wcd_usbss) {
 					wcd_usbss_dpdm_switch_update(true,
 							udev->speed == USB_SPEED_HIGH);
+					if (udev->speed == USB_SPEED_HIGH)
+						dwc3_msm_update_wcd_usbss_regmap(mdwc);
+				}
 				dwc3_msm_update_interfaces(udev);
 			} else
 				mdwc->max_rh_port_speed = USB_SPEED_SUPER;
@@ -6859,8 +6929,10 @@ static int dwc3_msm_host_notifier(struct notifier_block *nb,
 			if (udev->parent->speed >= USB_SPEED_SUPER)
 				usb_redriver_host_powercycle(mdwc->redriver);
 
-			if (mdwc->wcd_usbss)
+			if (mdwc->wcd_usbss) {
 				wcd_usbss_dpdm_switch_update(true, true);
+				dwc3_msm_update_wcd_usbss_regmap(mdwc);
+			}
 
 			if (hcd && test_bit(HCD_FLAG_DEAD, &hcd->flags))
 				schedule_work(&mdwc->restart_usb_work);
@@ -6982,8 +7054,10 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		mdwc->hs_phy->flags |= PHY_HOST_MODE;
 		dbg_event(0xFF, "hs_phy_flag:", mdwc->hs_phy->flags);
 
-		if (mdwc->wcd_usbss)
+		if (mdwc->wcd_usbss) {
 			wcd_usbss_switch_update(WCD_USBSS_USB, WCD_USBSS_CABLE_CONNECT);
+			dwc3_msm_update_wcd_usbss_regmap(mdwc);
+		}
 
 		ret = pm_runtime_resume_and_get(mdwc->dev);
 		if (ret < 0) {
@@ -7201,8 +7275,10 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 	if (on) {
 		dev_dbg(mdwc->dev, "%s: turn on gadget\n", __func__);
 
-		if (mdwc->wcd_usbss)
+		if (mdwc->wcd_usbss) {
 			wcd_usbss_switch_update(WCD_USBSS_USB, WCD_USBSS_CABLE_CONNECT);
+			dwc3_msm_update_wcd_usbss_regmap(mdwc);
+		}
 
 		pm_runtime_get_sync(&mdwc->dwc3->dev);
 		/*
@@ -7475,6 +7551,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 			wcd_usbss_dpdm_switch_update(true,
 					dwc->gadget->speed == USB_SPEED_HIGH ||
 					mdwc->eud_active);
+			dwc3_msm_update_wcd_usbss_regmap(mdwc);
 		}
 		break;
 
