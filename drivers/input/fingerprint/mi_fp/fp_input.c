@@ -12,7 +12,7 @@ static struct fp_device *fp_dev;
  * The input handler runs from input_event(), which holds dev->event_lock with
  * interrupts disabled, so the state change has to be deferred.
  */
-static void xiaomifp_intr2_work(struct work_struct *work)
+static void fp_intr2_work_func(struct work_struct *work)
 {
 	struct fp_device *dev = container_of(work, struct fp_device, intr2_work);
 
@@ -177,7 +177,7 @@ int xiaomifp_evdev_init(struct fp_device *_fp_dev)
 {
 	int ret;
 	fp_dev = _fp_dev;
-	INIT_WORK(&fp_dev->intr2_work, xiaomifp_intr2_work);
+	INIT_WORK(&fp_dev->intr2_work, fp_intr2_work_func);
 	ret = input_register_handler(&xiaomifp_input_handler);
 	if (ret == 0) {
 		pr_debug("input_register_handler success!");
