@@ -22,6 +22,15 @@
  * as soon as the buffer moves; it replaces the buffer probe() allocated the
  * first time a write() arrives without a length having been set, leaking it;
  * and it logs the size of every burst at warning level.
+ *
+ * Three things are done that Xiaomi's driver does not do.  The burst length
+ * is bounded: Xiaomi's takes whatever the ioctl is given and allocates it, so
+ * any process that can open the node can ask for an arbitrary allocation.
+ * The ceiling is Xiaomi's own -- the size probe() preallocates.  Refusing to
+ * resize a buffer two openers share returns -EBUSY rather than -EPERM, which
+ * is what the situation is.  And remove() deregisters the character device
+ * before freeing the buffer, rather than after: the shipped order leaves a
+ * live node pointing at freed memory for as long as it takes to return.
  */
 
 #define pr_fmt(fmt) "ir-spi: " fmt
