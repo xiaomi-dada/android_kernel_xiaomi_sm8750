@@ -31,6 +31,10 @@ struct business_battery {
 
 	struct batt_psy_info *batt_psy_info;
 	struct batt_feature_info *batt_feature;
+	/*
+	 * Never queued, here and in the shipped module alike; kept so the
+	 * structure matches the one the vendor's tooling expects.
+	 */
 	struct work_struct event_process_work;
 };
 

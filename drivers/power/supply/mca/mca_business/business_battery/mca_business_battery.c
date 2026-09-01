@@ -45,15 +45,6 @@
 
 static struct business_battery *g_mca_business_battery;
 
-/*
-static void battery_event_process_work(struct work_struct *work)
-{
-	struct business_battery *battery = container_of(work,
-			struct business_battery, event_process_work);
-
-	business_battery_psy_event_process(battery->batt_psy_info);
-}
-*/
 static int business_battery_event_process(struct notifier_block *nb,
 	unsigned long event, void *data)
 {
@@ -113,7 +104,6 @@ static int business_battery_probe(struct platform_device *pdev)
 		return -1;
 	}
 
-	//INIT_WORK(&battery->event_process_work, battery_event_process_work);
 	battery->batt_info_nb.notifier_call = business_battery_event_process;
 	rc = mca_event_block_notify_register(MCA_EVENT_TYPE_BATTERY_INFO,
 		&battery->batt_info_nb);
@@ -139,7 +129,6 @@ static int business_battery_remove(struct platform_device *pdev)
 {
 	//struct business_battery *battery = platform_get_drvdata(pdev);
 
-	//cancel_work_sync(&battery->event_process_work);
 
 	return 0;
 }
@@ -148,7 +137,6 @@ static void business_battery_shutdown(struct platform_device *pdev)
 {
 	//struct business_battery *battery = platform_get_drvdata(pdev);
 
-	//cancel_work_sync(&battery->event_process_work);
 }
 
 static const struct of_device_id match_table[] = {
