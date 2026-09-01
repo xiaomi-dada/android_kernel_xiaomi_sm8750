@@ -551,9 +551,18 @@ static void connector_antiburn_check_status_v2(struct connector_antiburn *conn)
 		     conn->triggered, conn->cid_status,
 		     conn->otg_plugin_status, conn->usb_online);
 
+	/*
+	 * The lower combined threshold is for a connector that is hot while
+	 * the board is not, which says the heat is local to the connector
+	 * rather than the phone being warm all over.  That reading comes from
+	 * a thermal module this build does not have, so without it fall back
+	 * to the connector's own threshold: taking "no reading" for "board is
+	 * cold" would cut charging off on any phone that is merely warm.
+	 */
 	hot = temp > ANTIBURN_TEMP_IMPLAUSIBLE ||
 	      temp >= conn->trigger_temp ||
-	      (temp >= conn->comb_sensorboard_con_trigger_temp &&
+	      (conn->thermal_board_temp > 0 &&
+	       temp >= conn->comb_sensorboard_con_trigger_temp &&
 	       conn->thermal_board_temp <= conn->max_thermal_board_temp);
 
 	for (i = 0; !hot && i < ANTIBURN_NTC_NUM; i++)
