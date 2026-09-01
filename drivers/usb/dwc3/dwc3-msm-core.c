@@ -49,6 +49,7 @@
 #include <linux/soc/qcom/wcd939x-i2c.h>
 #include <linux/regmap.h>
 #include <linux/i2c.h>
+#include <mca/common/mca_sysfs.h>
 #include "../../soc/qcom/wcd-usbss-registers.h"
 #include <linux/usb/repeater.h>
 
@@ -1172,6 +1173,9 @@ static inline bool dwc3_msm_is_dev_superspeed(struct dwc3_msm *mdwc)
 
 	return false;
 }
+
+/* The class attribute is not per-device, so it needs the one instance. */
+static struct dwc3_msm *g_mdwc;
 
 static inline bool dwc3_msm_is_superspeed(struct dwc3_msm *mdwc)
 {
@@ -5447,6 +5451,53 @@ static ssize_t super_speed_show(struct device *dev,
 }
 static DEVICE_ATTR_RO(super_speed);
 
+enum dwc3_msm_sysfs_attr_list {
+	DWC3_MSM_PROP_SUPER_SPEED,
+};
+
+#define DWC3_MSM_SYSFS_ATTRS_SIZE ARRAY_SIZE(dwc3_msm_sysfs_field_tbl)
+
+static ssize_t dwc3_msm_sysfs_show(struct device *dev,
+				   struct device_attribute *attr, char *buf);
+
+struct mca_sysfs_attr_info dwc3_msm_sysfs_field_tbl[] = {
+	mca_sysfs_attr_ro(dwc3_msm_sysfs, 0440, DWC3_MSM_PROP_SUPER_SPEED,
+			  super_speed),
+};
+
+static ssize_t dwc3_msm_sysfs_show(struct device *dev,
+				   struct device_attribute *attr, char *buf)
+{
+	struct mca_sysfs_attr_info *attr_info;
+	int ret = 0;
+
+	attr_info = mca_sysfs_lookup_attr(attr->attr.name,
+			dwc3_msm_sysfs_field_tbl, DWC3_MSM_SYSFS_ATTRS_SIZE);
+	if (!attr_info || !g_mdwc)
+		return -1;
+
+	switch (attr_info->sysfs_attr_name) {
+	case DWC3_MSM_PROP_SUPER_SPEED:
+		if (!atomic_read(&g_mdwc->in_suspend))
+			ret = dwc3_msm_is_superspeed(g_mdwc);
+		else
+			pr_err("%s: dwc3 has been suspend\n", __func__);
+		return scnprintf(buf, PAGE_SIZE, "%s\n", ret ? "true" : "false");
+	default:
+		return 0;
+	}
+}
+
+/*
+ * The charging HAL looks for this under the charging class rather than on this
+ * device, so it is published there as well as in the group below.
+ */
+static int dwc3_msm_create_files(void)
+{
+	return mca_sysfs_create_files(SYSFS_DEV_3, dwc3_msm_sysfs_field_tbl,
+				      DWC3_MSM_SYSFS_ATTRS_SIZE);
+}
+
 static struct attribute *dwc3_msm_attrs[] = {
 	&dev_attr_orientation.attr,
 	&dev_attr_mode.attr,
@@ -6531,6 +6582,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		}
 	}
 
+	g_mdwc = mdwc;
+
 	ret = dwc3_msm_parse_params(mdwc, node);
 	if (ret < 0)
 		goto err;
@@ -6544,6 +6597,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		if (ret)
 			goto err;
 	}
+
+	dwc3_msm_create_files();
 
 	mdwc->sleep_clk_bcr = of_property_read_bool(node, "qcom,sleep-clk-bcr");
 

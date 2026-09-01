@@ -1,7 +1,10 @@
 # SPDX-License-Identifier: GPL-2.0
 # define_trace.h needs to know how to find our header
 CFLAGS_trace.o				:= -I$(src)
-CFLAGS_dwc3-msm-core.o			:= -I$(srctree)/drivers/usb/host
+# The charging class this driver publishes super_speed on lives with the MCA
+# stack, so its headers have to be reachable.
+CFLAGS_dwc3-msm-core.o			:= -I$(srctree)/drivers/usb/host \
+					   -I$(srctree)/drivers/power/supply/mca/include
 
 obj-$(CONFIG_USB_DWC3)			+= dwc3.o
 
