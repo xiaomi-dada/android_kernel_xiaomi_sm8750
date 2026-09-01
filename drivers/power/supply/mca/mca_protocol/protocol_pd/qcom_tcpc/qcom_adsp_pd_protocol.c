@@ -75,6 +75,17 @@ static int adsp_pd_protocol_get_pps_max_power(u32 *max_power, void *data)
 					 max_power, sizeof(*max_power));
 }
 
+/*
+ * PPS voltages and currents cross the glink in the units the PD specification
+ * uses rather than in millivolts and milliamps, packed into a single word with
+ * the voltage in the top half.  Both the request and the status report use
+ * this encoding.
+ */
+#define ADSP_PPS_VOLT_STEP_MV	20
+#define ADSP_PPS_CURR_STEP_MA	50
+#define ADSP_PPS_VOLT_SHIFT	16
+#define ADSP_PPS_CURR_MASK	0xffff
+
 /**
  * adsp_pd_protocol_select_pps_pdo() - ask the adapter for a voltage
  * @vbus_mv: the voltage, in millivolts
@@ -90,9 +101,14 @@ static int adsp_pd_protocol_get_pps_max_power(u32 *max_power, void *data)
 static int adsp_pd_protocol_select_pps_pdo(u32 vbus_mv, u32 ibus_ma,
 					   void *data)
 {
-	u32 req[2] = { vbus_mv, ibus_ma };
+	u32 req;
 
-	return mca_adsp_glink_write_prop(ADSP_PROP_ID_TYPEC_PPS_REQ, req,
+	mca_log_info("vbus_mv: %d, ibus_ma: %d\n", vbus_mv, ibus_ma);
+
+	req = (vbus_mv / ADSP_PPS_VOLT_STEP_MV) << ADSP_PPS_VOLT_SHIFT |
+	      (ibus_ma / ADSP_PPS_CURR_STEP_MA);
+
+	return mca_adsp_glink_write_prop(ADSP_PROP_ID_TYPEC_PPS_REQ, &req,
 					 sizeof(req));
 }
 
@@ -130,16 +146,16 @@ static int adsp_pd_protocol_get_pps_max_cur(u32 *curr, void *data)
  */
 static int adsp_pd_protocol_get_pps_status(u32 *volt, u32 *curr, void *data)
 {
-	u32 status[2] = { 0 };
+	u32 status = 0;
 	int rc;
 
-	rc = mca_adsp_glink_read_prop(ADSP_PROP_ID_TYPEC_PPS_STATUS, status,
+	rc = mca_adsp_glink_read_prop(ADSP_PROP_ID_TYPEC_PPS_STATUS, &status,
 				      sizeof(status));
 	if (rc)
 		return rc;
 
-	*volt = status[0];
-	*curr = status[1];
+	*curr = (status & ADSP_PPS_CURR_MASK) * ADSP_PPS_CURR_STEP_MA;
+	*volt = (status >> ADSP_PPS_VOLT_SHIFT) * ADSP_PPS_VOLT_STEP_MV;
 
 	return 0;
 }
