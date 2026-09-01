@@ -619,6 +619,18 @@ static int adsp_pd_protocol_event_cb(struct notifier_block *nb,
 static int adsp_pd_protocol_abnormal_cb(struct notifier_block *nb,
 					unsigned long event, void *data)
 {
+	struct adsp_protocol_pd_data *chip =
+		container_of(nb, struct adsp_protocol_pd_data, abnormal_nb);
+
+	/*
+	 * The firmware restarted and kept none of what it had been told, so
+	 * whatever authentication the adapter passed no longer holds.  Drop
+	 * it, or the charging strategies keep running the verified profile
+	 * against an adapter the firmware no longer knows anything about.
+	 */
+	if (event == MCA_EVENT_CHARGE_ABNORMAL)
+		chip->pd_verifed = 0;
+
 	return NOTIFY_OK;
 }
 
