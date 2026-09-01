@@ -1292,13 +1292,21 @@ static int qcom_subpmic_ship_mode(struct notifier_block *nb,
 static int qcom_subpmic_shutdown_cb(struct notifier_block *nb,
 				    unsigned long action, void *data)
 {
-	u8 val = 1;
+	unsigned long mode = action;
 	int rc;
+
+	/*
+	 * Which of the two it is matters to the firmware, so pass the action
+	 * on rather than a fixed value.  SYS_HALT leaves the board powered and
+	 * is not one of them.
+	 */
+	if (action != SYS_RESTART && action != SYS_POWER_OFF)
+		return NOTIFY_DONE;
 
 	mca_log_info("start adsp shutdown\n");
 
-	rc = mca_adsp_glink_write_prop(ADSP_PROP_ID_SHUTDOWN_MODE, &val,
-				       sizeof(val));
+	rc = mca_adsp_glink_write_prop(ADSP_PROP_ID_SHUTDOWN_MODE, &mode,
+				       sizeof(mode));
 	if (rc)
 		pr_err("Failed to write shutdown cmd to adsp: %d\n", rc);
 
