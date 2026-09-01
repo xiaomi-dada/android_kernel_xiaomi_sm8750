@@ -480,6 +480,31 @@ static bool wcd_usbss_is_in_reset_state(void)
 	}
 
 	mutex_lock(&wcd_usbss_ctxt_->switch_update_lock);
+
+	/*
+	 * Check 3: toggle WCD_USBSS_PMP_MISC1 Bit<0> 0 -> 1 -> 0 and read
+	 * WCD_USBSS_PMP_MISC2 Bit<0> back.  Not while the part is in standby,
+	 * where the charge pump this pokes is not running.  Any I2C error
+	 * along the way means the check could not be made, not that it failed.
+	 */
+	if (!wcd_usbss_ctxt_->is_in_standby) {
+		rc = regmap_update_bits(wcd_usbss_ctxt_->regmap,
+					WCD_USBSS_PMP_MISC1, 0x01, 0x00);
+		rc |= regmap_update_bits(wcd_usbss_ctxt_->regmap,
+					 WCD_USBSS_PMP_MISC1, 0x01, 0x01);
+		rc |= regmap_update_bits(wcd_usbss_ctxt_->regmap,
+					 WCD_USBSS_PMP_MISC1, 0x01, 0x00);
+		rc |= regmap_read(wcd_usbss_ctxt_->regmap,
+				  WCD_USBSS_PMP_MISC2, &read_val);
+		if (rc == 0 && (read_val & 0x1) == 0) {
+			dev_err(wcd_usbss_ctxt_->dev,
+				"%s: Surge check #3 failed\n", __func__);
+			ret = true;
+			mutex_unlock(&wcd_usbss_ctxt_->switch_update_lock);
+			goto done;
+		}
+	}
+
 	/* MG comparator bias current to 1uA */
 	regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_MG1_BIAS, MG_BIAS_CURRENT);
 	regmap_write(wcd_usbss_ctxt_->regmap, WCD_USBSS_MG2_BIAS, MG_BIAS_CURRENT);
