@@ -8,6 +8,7 @@
 #include <linux/errno.h>
 #include <linux/gpio.h>
 #include <linux/hrtimer.h>
+#include <linux/ktime.h>
 #include <linux/interrupt.h>
 #include <linux/kernel.h>
 #include <linux/led-class-flash.h>
@@ -22,6 +23,9 @@
 #include <linux/soc/qcom/battery_charger.h>
 
 #include "leds.h"
+
+/* Anything left on the off timer beyond this means it is still pending. */
+#define FLASH_OFF_TIMER_PENDING_NS	999
 
 #define FLASH_LED_REVISION1			0x00
 
@@ -835,6 +839,16 @@ static void qti_flash_led_switch_brightness_set(
 
 		rc = qti_flash_switch_enable(snode);
 	} else {
+		/*
+		 * The maximum-duration timer this strobe armed has nothing left
+		 * to do once the switch is being turned off deliberately, and
+		 * leaving it running means it fires against whatever strobe
+		 * comes next and cuts it short.
+		 */
+		if (ktime_to_ns(hrtimer_get_remaining(&snode->off_timer)) >
+		    FLASH_OFF_TIMER_PENDING_NS)
+			hrtimer_cancel(&snode->off_timer);
+
 		rc = qti_flash_switch_disable(snode);
 	}
 
