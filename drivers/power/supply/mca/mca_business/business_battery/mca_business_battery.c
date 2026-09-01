@@ -114,7 +114,6 @@ static int business_battery_probe(struct platform_device *pdev)
 	}
 
 	g_mca_business_battery = battery;
-	// business_battery_sysfs_create_files();
 
 	mca_log_err("probe ok");
 

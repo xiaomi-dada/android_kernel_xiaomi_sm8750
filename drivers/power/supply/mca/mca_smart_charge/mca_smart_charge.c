@@ -403,40 +403,6 @@ static void smart_charge_handle_sense_chg(struct smart_charge_info *info)
 	}
 }
 
-//static void smartcharging_handle_soc_limit_process(struct smart_charge_info *info,
-//	bool enable, int soc_limit_thre)
-//{
-//	int curr_soc = 0;
-//	static struct mca_smartchg_if_ops *if_ops;
-
-//	if (enable) {
-//		curr_soc = strategy_class_fg_ops_get_soc();
-//		if (curr_soc >= soc_limit_thre) {
-//			mca_log_info("soc_limit_thre = %d\n", soc_limit_thre);
-//			info->soc_limit_enable = true;
-//			for (int i = 0; i < MCA_SMARTCHG_IF_CHG_TYPE_END; i++) {
-//				if_ops = mca_smartchg_if_get_ops(i);
-//				if (!if_ops || !if_ops->set_soc_limit_sts)
-//					continue;
-//				if_ops->set_soc_limit_sts(if_ops->data, info->soc_limit_enable);
-//			}
-//		} else{
-//			cancel_delayed_work_sync(&info->smart_soc_limit_work);
-//			schedule_delayed_work(&info->smart_soc_limit_work, msecs_to_jiffies(1000));
-//		}
-//	} else {
-//		mca_log_info("disable soc limit\n");
-//		cancel_delayed_work_sync(&info->smart_soc_limit_work);
-//		info->soc_limit_enable = true;
-//		for (int i = 0; i < MCA_SMARTCHG_IF_CHG_TYPE_END; i++) {
-//			if_ops = mca_smartchg_if_get_ops(i);
-//			if (!if_ops || !if_ops->set_soc_limit_sts)
-//				continue;
-//			if_ops->set_soc_limit_sts(if_ops->data, info->soc_limit_enable);
-//		}
-//	}
-//}
-
 static void smart_charge_set_soc_limit(bool enable)
 {
 	static struct mca_smartchg_if_ops *if_ops;
@@ -565,7 +531,6 @@ smartcharging_handle_algorithm_conflict(struct smart_charge_info *info)
 	info->soc_limit = soc_upper_thre;
 	cancel_delayed_work_sync(&info->smart_soc_limit_work);
 	schedule_delayed_work(&info->smart_soc_limit_work, 0);
-	//smartcharging_handle_soc_limit_process(info, !!soc_upper_thre, info->soc_limit);
 }
 
 static __always_inline void smartcharging_handle_wls_super(struct smart_charge_info *info)
