@@ -74,8 +74,10 @@ struct wcd_usbss_reg_mask_val {
 
 /* regulator power supply names */
 /*
- * The only board whose switch needs the bias tweak above.  Kept as a
- * number because the project enum does not name this one.
+ * The board whose switch needs the bias tweak below.  This board is dada,
+ * project 2, so the comparison never fires; it is kept so the switch is set
+ * up the way the vendor stack would have set it up on the board that does
+ * need it.  Kept as a number because the project enum does not name it.
  */
 #define WCD_USBSS_PD_BIAS_PLATFORM	4
 
@@ -756,9 +758,10 @@ static int wcd_usbss_usbc_event_changed(struct notifier_block *nb,
 			TYPEC_ACCESSORY_AUDIO);
 
 	/*
-	 * One board takes the D+/D- bias out of circuit and raises the top
-	 * bias whenever a PD device that talks USB is attached; everywhere
-	 * else the reset values are what the switch wants.
+	 * One board -- not this one, see the platform number above -- takes
+	 * the D+/D- bias out of circuit and raises the top bias whenever a PD
+	 * device that talks USB is attached; everywhere else the reset values
+	 * are what the switch wants.
 	 */
 	if (get_hw_version_platform() == WCD_USBSS_PD_BIAS_PLATFORM &&
 	    priv->pwr_opmode == UCSI_GLINK_PWR_OPMODE_PD) {
