@@ -1274,7 +1274,6 @@ static void mca_wireless_update_fw_mainthread_work(struct work_struct *work)
 	info->proc_data.fw_updating = true;
 	info->proc_data.wls_sleep_fw_update = true;
 
-	//pmic_glink_send_power_supply_notification(XM_POWER_SUPPLY_GET_REQ);
 	(void)platform_class_wireless_set_enable_mode(WIRELESS_ROLE_MASTER, false);
 
 	pm_stay_awake(info->dev);
@@ -1283,7 +1282,6 @@ static void mca_wireless_update_fw_mainthread_work(struct work_struct *work)
 
 	info->proc_data.wls_sleep_fw_update = false;
 	info->proc_data.fw_updating = false;
-	//pmic_glink_send_power_supply_notification(XM_POWER_SUPPLY_GET_REQ);
 
 	/* The update is done; let the strategies act on reverse charging again. */
 	mca_event_block_notify(MCA_EVENT_TYPE_CHARGER_CONNECT,

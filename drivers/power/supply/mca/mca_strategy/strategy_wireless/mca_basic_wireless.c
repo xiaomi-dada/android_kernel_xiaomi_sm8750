@@ -1246,7 +1246,6 @@ static int strategy_wireless_get_chgr_stage(struct strategy_wireless_dev *info, 
 		if (info->proc_data.batt_soc == 100 &&
 			info->proc_data.chgr_status == POWER_SUPPLY_CHARGING_STATUS_FULL) {
 			*chg_stage = WLS_FULL_MODE;
-			//xm_wireless_set_ble_mac();
 			mca_log_info("change taper to full mode\n");
 		} else if (info->proc_data.batt_soc < 99) {
 			*chg_stage = WLS_NORMAL_MODE;

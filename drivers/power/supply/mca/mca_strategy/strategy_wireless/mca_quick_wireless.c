@@ -1344,7 +1344,6 @@ static int mca_wireless_quick_charge_judge_vbat(struct mca_wireless_quick_charge
 {
 	int ret;
 	int vbat = 0;
-	// mca_wireless_quick_charge_update_vbat(info);
 	ret = strategy_class_fg_ops_get_voltage(&vbat);
 	if (vbat < info->min_vbat || vbat  > info->max_vbat) {
 		mca_log_info("vbat %d is out of range, try next loop\n",
