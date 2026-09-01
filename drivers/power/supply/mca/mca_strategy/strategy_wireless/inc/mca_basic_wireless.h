@@ -130,7 +130,7 @@ enum mca_wireless_basic_rx_int_flag {
 
 enum mca_wireless_basic_rx_iout_limit {
 	MCA_BASIC_WLS_RX_IOUT_MAX_20W_2_1 = 2000,
-	MCA_BASIC_WLS_RX_IOUT_MAX_30W_2_1 = 2800,
+	MCA_BASIC_WLS_RX_IOUT_MAX_30W_2_1 = 2900,
 	MCA_BASIC_WLS_RX_IOUT_MAX_50W_2_1 = 4900,
 	MCA_BASIC_WLS_RX_IOUT_MAX_20W_4_1 = 1100,
 	MCA_BASIC_WLS_RX_IOUT_MAX_30W_4_1 = 1700,
