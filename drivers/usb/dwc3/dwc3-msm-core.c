@@ -599,6 +599,12 @@ struct dwc3_msm {
 	u32			ip;
 	atomic_t                in_p3;
 	atomic_t		in_lpm;
+	/*
+	 * Set for the whole of a suspend, where in_lpm only covers the settled
+	 * state.  A sysfs read that races the transition must not touch the
+	 * link state registers.
+	 */
+	atomic_t		in_suspend;
 	unsigned int		lpm_to_suspend_delay;
 	struct dev_pm_ops	*dwc3_pm_ops;
 	struct dev_pm_ops	*xhci_pm_ops;
@@ -4114,6 +4120,7 @@ static int dwc3_msm_check_suspend(struct dwc3_msm *mdwc)
 	if (mdwc->dwc3)
 		dwc = platform_get_drvdata(mdwc->dwc3);
 
+	atomic_set(&mdwc->in_suspend, 1);
 	if (dwc) {
 		if (!mdwc->in_host_mode) {
 			evt = dwc->ev_buf;
@@ -4438,6 +4445,7 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	}
 
 	atomic_set(&mdwc->in_lpm, 0);
+	atomic_set(&mdwc->in_suspend, 0);
 
 	/* enable power evt irq for IN P3 detection */
 	enable_irq(mdwc->wakeup_irq[PWR_EVNT_IRQ].irq);
@@ -5408,6 +5416,26 @@ static ssize_t dynamic_disable_store(struct device *dev, struct device_attribute
 }
 static DEVICE_ATTR_WO(dynamic_disable);
 
+/*
+ * Whether the link came up at SuperSpeed.  Xiaomi's charging HAL reads this to
+ * decide what it may draw, and it is asked while the controller may be
+ * suspended, where the link state register cannot be read.
+ */
+static ssize_t super_speed_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
+	int ret = 0;
+
+	if (!atomic_read(&mdwc->in_suspend))
+		ret = dwc3_msm_is_superspeed(mdwc);
+	else
+		pr_err("%s: dwc3 has been suspend\n", __func__);
+
+	return scnprintf(buf, PAGE_SIZE, "%s\n", ret ? "true" : "false");
+}
+static DEVICE_ATTR_RO(super_speed);
+
 static struct attribute *dwc3_msm_attrs[] = {
 	&dev_attr_orientation.attr,
 	&dev_attr_mode.attr,
@@ -5415,6 +5443,7 @@ static struct attribute *dwc3_msm_attrs[] = {
 	&dev_attr_bus_vote.attr,
 	&dev_attr_xhci_test.attr,
 	&dev_attr_dynamic_disable.attr,
+	&dev_attr_super_speed.attr,
 	NULL
 };
 ATTRIBUTE_GROUPS(dwc3_msm);
@@ -6480,6 +6509,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	 */
 	mdwc->lpm_flags = MDWC3_POWER_COLLAPSE | MDWC3_SS_PHY_SUSPEND;
 	atomic_set(&mdwc->in_lpm, 1);
+	atomic_set(&mdwc->in_suspend, 1);
 	pm_runtime_set_autosuspend_delay(mdwc->dev, 1000);
 	pm_runtime_use_autosuspend(mdwc->dev);
 	device_init_wakeup(mdwc->dev, 1);
