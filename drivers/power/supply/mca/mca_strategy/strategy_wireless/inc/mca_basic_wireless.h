@@ -508,5 +508,7 @@ struct strategy_wireless_dev {
 #define MCA_WLS_UUID_2_1_STARTUP	0x0E0E0205
 #define MCA_WLS_2_1_VENDOR		3
 #define MCA_WLS_2_1_SS_VOLT_MAX		6700
+/* And what it is asked for when a transparent transfer has to be retried. */
+#define MCA_WLS_RETRY_VOLT_2_1_MV	20000
 
 #endif /* __MCA_BASIC_WIRELESS_H__ */

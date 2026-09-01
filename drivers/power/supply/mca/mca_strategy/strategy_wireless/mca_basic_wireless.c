@@ -1480,6 +1480,7 @@ static __always_inline int strategy_wireless_help_fcc_change(struct strategy_wir
 
 static int strategy_wireless_transparent_fail(struct strategy_wireless_dev *info)
 {
+	struct mca_hwid_info *hwid;
 	int ret = 0;
 	if (info->proc_data.set_tx_voltage_cnt++ < TRANS_FAIL_RETRY_MAX_CNT) {
 		switch (info->proc_data.current_for_tx_cmd) {
@@ -1488,7 +1489,16 @@ static int strategy_wireless_transparent_fail(struct strategy_wireless_dev *info
 			mca_log_info("frequency_range failed\n");
 			break;
 		case TX_CMD_TYPE_VOLTAGE:
-			if (info->proc_data.adapter_type > ADAPTER_XIAOMI_PD_50W)
+			/*
+			 * The transmitter that runs at 2:1 is asked for a far
+			 * lower voltage on retry than the rest; the others are
+			 * split by whether the adapter is above 50 W.
+			 */
+			hwid = mca_get_hwid_info();
+			if (hwid && hwid->platform_version == MCA_WLS_2_1_PLATFORM &&
+			    info->proc_data.uuid_value == MCA_WLS_UUID_2_1_ONLY)
+				info->proc_data.tx_voltage = MCA_WLS_RETRY_VOLT_2_1_MV;
+			else if (info->proc_data.adapter_type > ADAPTER_XIAOMI_PD_50W)
 				info->proc_data.tx_voltage = 34000;
 			else
 				info->proc_data.tx_voltage = 32000;
