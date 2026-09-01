@@ -12,7 +12,19 @@
 
 struct ucsi_glink_constat_info {
 	enum typec_accessory acc;
+	/*
+	 * The connector's power operation mode, as UCSI reports it, for the
+	 * one case a consumer needs to tell apart: a UFP that negotiated PD
+	 * and talks USB.  Zero for everything else.
+	 */
+	int pwr_opmode;
 };
+
+/*
+ * The only value pwr_opmode ever carries, mirroring the UCSI power operation
+ * mode of the same number.  ucsi_qti_glink.c checks the two agree.
+ */
+#define UCSI_GLINK_PWR_OPMODE_PD	3
 
 struct notifier_block;
 

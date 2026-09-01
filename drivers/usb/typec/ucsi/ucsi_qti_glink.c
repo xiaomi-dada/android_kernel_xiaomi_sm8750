@@ -462,6 +462,9 @@ static void ucsi_qti_notify(struct ucsi_dev *udev, unsigned int offset,
 		if (!entry)
 			return;
 
+		BUILD_BUG_ON(UCSI_GLINK_PWR_OPMODE_PD !=
+			     UCSI_CONSTAT_PWR_OPMODE_PD);
+
 		INIT_LIST_HEAD(&entry->node);
 		conn_partner_type = UCSI_CONSTAT_PARTNER_TYPE(status->flags);
 
@@ -471,6 +474,21 @@ static void ucsi_qti_notify(struct ucsi_dev *udev, unsigned int offset,
 			break;
 		case UCSI_CONSTAT_PARTNER_TYPE_DEBUG:
 			entry->constat_info.acc = TYPEC_ACCESSORY_DEBUG;
+			break;
+		case UCSI_CONSTAT_PARTNER_TYPE_UFP:
+			entry->constat_info.acc = TYPEC_ACCESSORY_NONE;
+			/*
+			 * A device that negotiated PD and talks USB needs the
+			 * analog switch set up differently on some boards, and
+			 * the connector status is the only place that pairing
+			 * is visible.  Pass it on; nothing else needs it.
+			 */
+			if (UCSI_CONSTAT_PWR_OPMODE(status->flags) ==
+					UCSI_CONSTAT_PWR_OPMODE_PD &&
+			    (UCSI_CONSTAT_PARTNER_FLAGS(status->flags) &
+					UCSI_CONSTAT_PARTNER_FLAG_USB))
+				entry->constat_info.pwr_opmode =
+					UCSI_GLINK_PWR_OPMODE_PD;
 			break;
 		default:
 			entry->constat_info.acc = TYPEC_ACCESSORY_NONE;

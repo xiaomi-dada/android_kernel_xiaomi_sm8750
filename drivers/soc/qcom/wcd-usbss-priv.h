@@ -54,6 +54,8 @@ struct wcd_usbss_ctxt {
 	bool defer_writes;
 	int req_state;
 	bool usb_sbu_compliance;
+	/* Last power operation mode the connector reported, see below. */
+	int pwr_opmode;
 };
 
 extern struct regmap *wcd_usbss_regmap_init(struct device *dev,

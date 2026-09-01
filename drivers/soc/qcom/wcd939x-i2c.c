@@ -5,6 +5,7 @@
 
 #include <linux/usb/typec.h>
 #include <linux/usb/ucsi_glink.h>
+#include <linux/hwid.h>
 #include <linux/soc/qcom/wcd939x-i2c.h>
 #include <linux/qti-regmap-debugfs.h>
 #include <linux/pinctrl/consumer.h>
@@ -72,6 +73,12 @@ struct wcd_usbss_reg_mask_val {
 };
 
 /* regulator power supply names */
+/*
+ * The only board whose switch needs the bias tweak above.  Kept as a
+ * number because the project enum does not name this one.
+ */
+#define WCD_USBSS_PD_BIAS_PLATFORM	4
+
 static const char * const supply_names[] = {
 	"vdd-usb-cp",
 };
@@ -732,7 +739,8 @@ static int wcd_usbss_usbc_event_changed(struct notifier_block *nb,
 	struct wcd_usbss_ctxt *priv =
 			container_of(nb, struct wcd_usbss_ctxt, ucsi_nb);
 	struct device *dev;
-	enum typec_accessory acc = ((struct ucsi_glink_constat_info *)ptr)->acc;
+	struct ucsi_glink_constat_info *info = ptr;
+	enum typec_accessory acc = info->acc;
 
 	if (!priv)
 		return -EINVAL;
@@ -741,9 +749,23 @@ static int wcd_usbss_usbc_event_changed(struct notifier_block *nb,
 	if (!dev)
 		return -EINVAL;
 
-	dev_dbg(dev, "%s: USB change event received, supply mode %d, usbc mode %d, expected %d\n",
-			__func__, acc, priv->usbc_mode.counter,
+	priv->pwr_opmode = info->pwr_opmode;
+
+	dev_dbg(dev, "%s: USB change event received, supply mode %d, pwr_mode %d, usbc mode %d, expected %d\n",
+			__func__, acc, priv->pwr_opmode, priv->usbc_mode.counter,
 			TYPEC_ACCESSORY_AUDIO);
+
+	/*
+	 * One board takes the D+/D- bias out of circuit and raises the top
+	 * bias whenever a PD device that talks USB is attached; everywhere
+	 * else the reset values are what the switch wants.
+	 */
+	if (get_hw_version_platform() == WCD_USBSS_PD_BIAS_PLATFORM &&
+	    priv->pwr_opmode == UCSI_GLINK_PWR_OPMODE_PD) {
+		regmap_update_bits(priv->regmap, WCD_USBSS_DP_BIAS, 0x01, 0);
+		regmap_update_bits(priv->regmap, WCD_USBSS_DN_BIAS, 0x01, 0);
+		regmap_update_bits(priv->regmap, WCD_USBSS_BIAS_TOP, 0x20, 0x20);
+	}
 
 	switch (acc) {
 	case TYPEC_ACCESSORY_AUDIO:
