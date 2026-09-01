@@ -2963,6 +2963,7 @@ struct walt_sched_cluster *sched_cluster[WALT_NR_CPUS];
 __read_mostly int num_sched_clusters;
 
 struct list_head cluster_head;
+EXPORT_SYMBOL_GPL(cluster_head);
 
 static struct walt_sched_cluster init_cluster = {
 	.list			= LIST_HEAD_INIT(init_cluster.list),

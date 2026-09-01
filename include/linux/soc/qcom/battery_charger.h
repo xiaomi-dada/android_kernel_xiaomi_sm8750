@@ -19,7 +19,12 @@ enum bc_hboost_event {
 	VMAX_CLAMP,
 };
 
-#if IS_ENABLED(CONFIG_QTI_BATTERY_CHARGER)
+/*
+ * On a board whose charging the ADSP owns, the QTI client above is not built
+ * and the MCA proxy answers for it instead -- so the prototypes have to be
+ * visible for either provider, not just the first.
+ */
+#if IS_ENABLED(CONFIG_QTI_BATTERY_CHARGER) || IS_ENABLED(CONFIG_XM_POWER_SUPPLY)
 int qti_battery_charger_get_prop(const char *name,
 				enum battery_charger_prop prop_id, int *val);
 int qti_battery_charger_set_prop(const char *name,
