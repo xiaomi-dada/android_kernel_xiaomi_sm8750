@@ -397,29 +397,45 @@ static int adsp_pd_protocol_get_data_role(int *data_role, void *data)
 				data_role);
 }
 
+static const char * const adsp_pd_state_name[] = {
+	"SRC_Ready",
+	"SNK_STARTUP",
+	"SNK_Ready",
+};
+
+/* What the shipped module insists on before it will write a name. */
+#define ADSP_PD_STATE_BUF_MIN	64
+
 /**
  * adsp_pd_protocol_get_current_state() - what the port is doing, in words
  * @buf:  filled in with the state
  * @size: how much room there is
  * @data: this driver's state
  *
- * The firmware names its own state machine's states, and those names are what
- * a bug report needs; deriving them from a number here would mean keeping a
- * table in step with firmware nobody here builds.
+ * The property is a number, not a name -- the names live here.  A state the
+ * firmware reports that this table does not cover is reported as unknown
+ * rather than guessed at.
  *
  * Return: 0, or a negative error.
  */
 static int adsp_pd_protocol_get_current_state(char *buf, int size, void *data)
 {
-	char state[MCA_GLINK_DATA_MAX] = { 0 };
+	const char *name = "UNKNOWN";
+	u32 state = 0;
 	int rc;
 
-	rc = mca_adsp_glink_read_prop(ADSP_PROP_ID_TYPEC_CURRENT_STATE, state,
-				      sizeof(state));
+	if (size < ADSP_PD_STATE_BUF_MIN)
+		return -EINVAL;
+
+	rc = adsp_pd_read_u32(ADSP_PROP_ID_TYPEC_CURRENT_STATE, &state);
 	if (rc)
 		return rc;
 
-	strscpy(buf, state, size);
+	if (state < ARRAY_SIZE(adsp_pd_state_name))
+		name = adsp_pd_state_name[state];
+
+	strscpy(buf, name, size);
+	mca_log_info("get current_state: %u => %s\n", state, buf);
 
 	return 0;
 }
