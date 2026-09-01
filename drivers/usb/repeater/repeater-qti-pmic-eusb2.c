@@ -246,7 +246,7 @@ static void eusb2_repeater_create_debugfs(struct eusb2_repeater *er)
  * last init actually applied.  The names and the one-character answers are the
  * interface Xiaomi's HAL was built against.
  */
-static int eusb2_proc_msflag_show(struct seq_file *s, void *unused)
+static int proc_msflag_show(struct seq_file *s, void *unused)
 {
 	struct eusb2_repeater *er = s->private;
 
@@ -255,12 +255,12 @@ static int eusb2_proc_msflag_show(struct seq_file *s, void *unused)
 	return 0;
 }
 
-static int eusb2_proc_msflag_open(struct inode *inode, struct file *file)
+static int proc_msflag_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, eusb2_proc_msflag_show, pde_data(inode));
+	return single_open(file, proc_msflag_show, pde_data(inode));
 }
 
-static ssize_t eusb2_proc_msflag_write(struct file *file,
+static ssize_t msflag_write(struct file *file,
 				       const char __user *buf, size_t count,
 				       loff_t *ppos)
 {
@@ -285,14 +285,14 @@ static ssize_t eusb2_proc_msflag_write(struct file *file,
 }
 
 static const struct proc_ops eusb2_proc_msflag_ops = {
-	.proc_open	= eusb2_proc_msflag_open,
+	.proc_open	= proc_msflag_open,
 	.proc_read	= seq_read,
-	.proc_write	= eusb2_proc_msflag_write,
+	.proc_write	= msflag_write,
 	.proc_lseek	= seq_lseek,
 	.proc_release	= single_release,
 };
 
-static int eusb2_proc_ms_use_show(struct seq_file *s, void *unused)
+static int proc_ms_use_show(struct seq_file *s, void *unused)
 {
 	struct eusb2_repeater *er = s->private;
 
@@ -301,19 +301,19 @@ static int eusb2_proc_ms_use_show(struct seq_file *s, void *unused)
 	return 0;
 }
 
-static int eusb2_proc_ms_use_open(struct inode *inode, struct file *file)
+static int proc_ms_use_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, eusb2_proc_ms_use_show, pde_data(inode));
+	return single_open(file, proc_ms_use_show, pde_data(inode));
 }
 
 static const struct proc_ops eusb2_proc_ms_use_ops = {
-	.proc_open	= eusb2_proc_ms_use_open,
+	.proc_open	= proc_ms_use_open,
 	.proc_read	= seq_read,
 	.proc_lseek	= seq_lseek,
 	.proc_release	= single_release,
 };
 
-static int eusb2_proc_en_msflag_show(struct seq_file *s, void *unused)
+static int proc_en_msflag_show(struct seq_file *s, void *unused)
 {
 	struct eusb2_repeater *er = s->private;
 
@@ -322,13 +322,13 @@ static int eusb2_proc_en_msflag_show(struct seq_file *s, void *unused)
 	return 0;
 }
 
-static int eusb2_proc_en_msflag_open(struct inode *inode, struct file *file)
+static int proc_en_msflag_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, eusb2_proc_en_msflag_show, pde_data(inode));
+	return single_open(file, proc_en_msflag_show, pde_data(inode));
 }
 
 static const struct proc_ops eusb2_proc_en_msflag_ops = {
-	.proc_open	= eusb2_proc_en_msflag_open,
+	.proc_open	= proc_en_msflag_open,
 	.proc_read	= seq_read,
 	.proc_lseek	= seq_lseek,
 	.proc_release	= single_release,
@@ -344,7 +344,7 @@ static void eusb2_repeater_remove_procfs(struct eusb2_repeater *er)
 	er->proc_msflag = NULL;
 }
 
-static void eusb2_repeater_create_procfs(struct eusb2_repeater *er)
+static void eusb2_ms_create_procfs(struct eusb2_repeater *er)
 {
 	er->proc_msflag = proc_create_data("usb_msflag", 0644, NULL,
 					   &eusb2_proc_msflag_ops, er);
@@ -705,7 +705,7 @@ static int eusb2_repeater_probe(struct platform_device *pdev)
 		goto err_probe;
 
 	eusb2_repeater_create_debugfs(er);
-	eusb2_repeater_create_procfs(er);
+	eusb2_ms_create_procfs(er);
 	return 0;
 
 err_probe:
