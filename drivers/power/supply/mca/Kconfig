@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+menu "Xiaomi MCA charging support"
+
+config XM_POWER_SUPPLY
+	tristate "Xiaomi Mi Charging Architecture"
+	help
+	  Xiaomi's charging stack.  It replaces the platform's own charging
+	  driver with a layered arrangement: hardware drivers underneath, a
+	  class layer that hides which part is fitted, and strategies above
+	  that decide what the charge should be doing.
+
+	  The parts are separate modules and load in dependency order; this
+	  option builds all of them, because none is useful on its own.
+
+	  Say M here to build them as modules.  If unsure, say N.
+
+endmenu
