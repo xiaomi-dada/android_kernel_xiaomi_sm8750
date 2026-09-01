@@ -15,13 +15,24 @@ static struct fp_device *fp_dev;
 static void xiaomifp_intr2_work(struct work_struct *work)
 {
 	struct fp_device *dev = container_of(work, struct fp_device, intr2_work);
-	struct pinctrl_state *state;
 
-	state = atomic_read(&dev->intr2_level) ? dev->pins_reset_high :
-						 dev->pins_reset_low;
-
+	/*
+	 * Both the touched-slot map and the pin are re-read here rather than in
+	 * the caller: by the time this runs the finger may have moved again, and
+	 * driving the pin to a level the hardware has already left is worse than
+	 * doing nothing.  A level that still needs applying will be applied by
+	 * the next report.
+	 */
 	mutex_lock(&dev->intr2_lock);
-	pinctrl_select_state(dev->pinctrl, state);
+	if (dev->position.SLOT_MAP == 0 &&
+	    gpio_get_value(dev->intr2_gpio) == 1) {
+		fp_local_time_printk("input_event: intr2 output low");
+		pinctrl_select_state(dev->pinctrl, dev->pins_reset_low);
+	} else if (dev->position.SLOT_MAP != 0 &&
+		   gpio_get_value(dev->intr2_gpio) == 0) {
+		fp_local_time_printk("input_event: intr2 output high");
+		pinctrl_select_state(dev->pinctrl, dev->pins_reset_high);
+	}
 	mutex_unlock(&dev->intr2_lock);
 }
 
@@ -51,17 +62,7 @@ static void xiaomifp_intr2_operation(int SLOT_CUR, int code)
 			}
 		}
 		// fp_local_time_printk("intr2 operation:SLOT_MAP: %d, GPIO:%d,", fp_dev->position.SLOT_MAP, gpio_get_value(fp_dev->intr2_gpio));
-		if (fp_dev->position.SLOT_MAP == 0 &&
-		    gpio_get_value(fp_dev->intr2_gpio) == 1) {
-			fp_local_time_printk("input_event: intr2 output low");
-			atomic_set(&fp_dev->intr2_level, 0);
-			schedule_work(&fp_dev->intr2_work);
-		} else if (fp_dev->position.SLOT_MAP > 0 &&
-			   gpio_get_value(fp_dev->intr2_gpio) == 0) {
-			fp_local_time_printk("input_event: intr2 output high");
-			atomic_set(&fp_dev->intr2_level, 1);
-			schedule_work(&fp_dev->intr2_work);
-		}
+		schedule_work(&fp_dev->intr2_work);
 	}
 }
 
@@ -177,7 +178,6 @@ int xiaomifp_evdev_init(struct fp_device *_fp_dev)
 	int ret;
 	fp_dev = _fp_dev;
 	INIT_WORK(&fp_dev->intr2_work, xiaomifp_intr2_work);
-	atomic_set(&fp_dev->intr2_level, 0);
 	ret = input_register_handler(&xiaomifp_input_handler);
 	if (ret == 0) {
 		pr_debug("input_register_handler success!");

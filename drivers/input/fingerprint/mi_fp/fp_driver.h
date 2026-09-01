@@ -284,7 +284,6 @@ struct fp_device {
 	 */
 	struct mutex intr2_lock;
 	struct work_struct intr2_work;
-	atomic_t intr2_level;
 	DECLARE_KFIFO(fd_events, struct fd_event, MAX_FW_EVENTS);
 	DECLARE_KFIFO(ipc_events, struct ipc_event, MAX_FW_EVENTS);
 	wait_queue_head_t read_wait_queue_fd;
