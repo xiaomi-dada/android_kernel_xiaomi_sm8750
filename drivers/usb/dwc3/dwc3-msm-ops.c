@@ -344,7 +344,12 @@ static int exit_dwc3_gadget_disconnect_interrupt(struct kretprobe_instance *ri,
 {
 	union kprobe_data *data = (union kprobe_data *)ri->data;
 
-	pm_runtime_idle(data->dwc->dev);
+	/*
+	 * Queued, not run here: this is a return probe on a function the core
+	 * calls with dwc->lock held and interrupts off, and the synchronous
+	 * form can call the driver's idle callback and sleep.
+	 */
+	pm_request_idle(data->dwc->dev);
 	return 0;
 }
 
