@@ -501,7 +501,6 @@ struct mca_quick_charge_process_data {
 	int sw_ocp_curr;
 	/* The two currents the software over-current watch trips at. */
 	int ocp_thr[2];
-	bool cp_iic_ok;
 	bool stop_charging;
 	/* Set while the adapter has yet to finish verifying itself. */
 	bool to_pd_verify;

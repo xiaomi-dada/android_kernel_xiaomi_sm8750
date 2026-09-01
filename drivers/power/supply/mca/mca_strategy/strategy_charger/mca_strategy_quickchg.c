@@ -520,14 +520,7 @@ static void mca_quick_charge_stop_charging(struct mca_quick_charge_info *info)
 
 	mca_log_err("stop charge\n");
 
-	/*
-	 * Xiaomi's own release asks the pump whether its bus is still
-	 * answering.  There is no way to ask that here, so a pump that has
-	 * gone quiet shows up as a failed transfer instead.
-	 */
-	info->proc_data.cp_iic_ok = true;
-
-	if (info->proc_data.cp_iic_ok) {
+	{
 		/*
 		 * Xiaomi's own release also winds the PPS request back to
 		 * its first stage here; this platform's PD class has no such
@@ -538,7 +531,7 @@ static void mca_quick_charge_stop_charging(struct mca_quick_charge_info *info)
 	}
 	if (info->vfc_para.support_cp_vfc)
 		cancel_delayed_work_sync(&info->vfc_work);
-	if (info->proc_data.cp_iic_ok) {
+	{
 		if (info->proc_data.cur_work_cp == MCA_QUICK_CHG_CP_DUAL) {
 			platform_class_cp_set_default_fsw(CP_ROLE_MASTER);
 			platform_class_cp_set_default_fsw(CP_ROLE_SLAVE);
@@ -590,7 +583,7 @@ static void mca_quick_charge_stop_charging(struct mca_quick_charge_info *info)
 	 * before and after it: the adapter may already have come down on its
 	 * own, and it may not have moved at all.
 	 */
-	while (check_count++ < 10 && info->proc_data.cp_iic_ok) {
+	while (check_count++ < 10) {
 		platform_class_cp_get_bus_voltage(CP_ROLE_MASTER, &vbus_mv);
 		mca_log_info("avoid vusb_ovp. cp_vbus: %d\n", vbus_mv);
 		if (vbus_mv < MCA_QUICK_CHG_VBUS_OK_HIGH_TH)
@@ -1906,15 +1899,6 @@ static void mca_quick_charge_start_charging(struct mca_quick_charge_info *info)
 		return;
 	}
 
-	/*
-	 * Xiaomi's own release asks the pump whether its bus is still
-	 * answering before going on.  There is no way to ask that here.
-	 */
-	if (0) {
-		goto OUT;
-	} else
-		info->proc_data.cp_iic_ok = true;
-
 	ret = mca_quick_charge_select_cp(info);
 	if (ret) {
 		mca_log_err("select cp mode fail\n");
@@ -1984,12 +1968,6 @@ static void mca_quick_charge_start_charging(struct mca_quick_charge_info *info)
 	schedule_delayed_work(&info->monitor_work, 0);
 	if (info->vfc_para.support_cp_vfc)
 		schedule_delayed_work(&info->vfc_work, msecs_to_jiffies(MCA_QUICK_CHG_VFC_INTERVAL));
-	return;
-OUT:
-	info->pd_switch_to_pmic = true;
-	(void)protocol_class_pd_set_fixed_volt(TYPEC_PORT_0, MCA_QUICK_CHG_ADP_DEFAULT_VOLT);
-	mca_quick_charge_stop_charging(info);
-	mca_log_err("cp iic error exit quick chg\n");
 	return;
 }
 
