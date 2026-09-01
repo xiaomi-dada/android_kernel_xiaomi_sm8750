@@ -39,6 +39,15 @@
 /* How long to wait between readings once something is attached, in ms. */
 #define ANTIBURN_FAST_INTERVAL_MS	1000
 
+/*
+ * And how often once nothing has been attached and both thermistors have read
+ * cool for a while.  The port cannot get hot with nothing in it, so there is no
+ * reason to keep waking up at 1 Hz.
+ */
+#define ANTIBURN_IDLE_INTERVAL_MS	5000
+#define ANTIBURN_IDLE_CYCLES		5
+#define ANTIBURN_IDLE_TEMP_MAX		55000
+
 /* And how soon to take the next one after being told something changed. */
 #define ANTIBURN_KICK_DELAY_MS		250
 
@@ -601,6 +610,30 @@ static void connector_antiburn_check_status(struct connector_antiburn *conn)
 		connector_antiburn_recover(conn);
 }
 
+/*
+ * Back off to the idle period once nothing has been attached and both
+ * thermistors have read cool for several consecutive readings.  Anything
+ * happening at the port puts it straight back to the attached period, and the
+ * count starts again.
+ */
+static void connector_antiburn_pick_interval(struct connector_antiburn *conn)
+{
+	static unsigned int idle_cycles;
+
+	if (conn->cid_status || conn->usb_online == 1 ||
+	    conn->otg_plugin_status ||
+	    conn->connector_temp[0] >= ANTIBURN_IDLE_TEMP_MAX ||
+	    conn->connector_temp[1] >= ANTIBURN_IDLE_TEMP_MAX) {
+		idle_cycles = 0;
+		conn->monitor_interval = ANTIBURN_FAST_INTERVAL_MS;
+		return;
+	}
+
+	conn->monitor_interval = idle_cycles++ < ANTIBURN_IDLE_CYCLES ?
+					 ANTIBURN_FAST_INTERVAL_MS :
+					 ANTIBURN_IDLE_INTERVAL_MS;
+}
+
 static void connector_antiburn_monitor_workfunc(struct work_struct *work)
 {
 	struct connector_antiburn *conn = container_of(to_delayed_work(work),
@@ -622,6 +655,8 @@ static void connector_antiburn_monitor_workfunc(struct work_struct *work)
 	temp = max(conn->connector_temp[0], conn->connector_temp[1]);
 	connector_antiburn_temp_uevent(conn, temp);
 	connector_antiburn_ntc_alarm_uevent(conn, conn->ntc_alarm);
+
+	connector_antiburn_pick_interval(conn);
 
 	mca_queue_delayed_work(&conn->monitor_work,
 			       msecs_to_jiffies(conn->monitor_interval));
