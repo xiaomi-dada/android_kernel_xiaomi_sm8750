@@ -1789,6 +1789,33 @@ static int cp_charge_detect_device(struct sc8581_device *chip)
 	return 0;
 }
 
+/*
+ * One hardware variant wires the charge pump to answer at a different address
+ * than the device tree gives.  The device tree is shared, so the driver has to
+ * ask what board this is and move the address itself; on anything else the
+ * device tree address stands.
+ */
+#define SC8581_EN_BUCK_PLATFORM		3
+#define SC8581_EN_BUCK_HWID		0x10004
+#define SC8581_EN_BUCK_I2C_ADDR		0x6f
+
+static void sc8581_adjust_en_buck_addr(struct i2c_client *client)
+{
+	struct mca_hwid_info *hwid = mca_get_hwid_info();
+
+	if (!hwid) {
+		mca_log_err("get hwid info failed\n");
+		return;
+	}
+
+	if (hwid->platform_version != SC8581_EN_BUCK_PLATFORM ||
+	    hwid->hwid_value != SC8581_EN_BUCK_HWID)
+		return;
+
+	mca_log_err("adjust en buck CP addr\n");
+	client->addr = SC8581_EN_BUCK_I2C_ADDR;
+}
+
 static int sc8581_probe(struct i2c_client *client)
 {
 	struct sc8581_device *chip;
@@ -1801,6 +1828,8 @@ static int sc8581_probe(struct i2c_client *client)
 	chip->client = client;
 	chip->dev = &client->dev;
 	i2c_set_clientdata(client, chip);
+
+	sc8581_adjust_en_buck_addr(client);
 
 	INIT_DELAYED_WORK(&chip->irq_handle_work, sc8581_irq_handler);
 
