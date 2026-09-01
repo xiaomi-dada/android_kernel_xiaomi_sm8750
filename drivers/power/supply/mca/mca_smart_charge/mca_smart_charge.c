@@ -17,6 +17,10 @@
  *
  */
 
+#ifndef MCA_LOG_TAG
+#define MCA_LOG_TAG "mca_smart_charge"
+#endif
+
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/module.h>
@@ -51,9 +55,6 @@
 #include <linux/ktime.h>
 #include <linux/hwid.h>
 
-#ifndef MCA_LOG_TAG
-#define MCA_LOG_TAG "mca_smart_charge"
-#endif
 #ifndef BIT
 #define BIT(x) (1 << (x))
 #endif

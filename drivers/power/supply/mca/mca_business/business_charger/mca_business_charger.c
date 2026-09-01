@@ -16,6 +16,10 @@
  * GNU General Public License for more details.
  *
  */
+#ifndef MCA_LOG_TAG
+#define MCA_LOG_TAG "mca_business_charger"
+#endif
+
 #include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -54,10 +58,6 @@
 #include <mca/common/mca_charge_mievent.h>
 #include <mca/shared_memory/charger_partition_class.h>
 #include <mca/common/mca_event.h>
-
-#ifndef MCA_LOG_TAG
-#define MCA_LOG_TAG "mca_business_charger"
-#endif
 
 #define BUSINESS_CHARGER_THREAD_ACTIVE 1
 

@@ -16,6 +16,10 @@
  * GNU General Public License for more details.
  *
  */
+#ifndef MCA_LOG_TAG
+#define MCA_LOG_TAG "mca_business_misc"
+#endif
+
 #include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -32,10 +36,6 @@
 #include <linux/platform_device.h>
 #include <mca/common/mca_log.h>
 #include "inc/mca_business_misc.h"
-
-#ifndef MCA_LOG_TAG
-#define MCA_LOG_TAG "mca_business_misc"
-#endif
 
 static int business_misc_probe(struct platform_device *pdev)
 {

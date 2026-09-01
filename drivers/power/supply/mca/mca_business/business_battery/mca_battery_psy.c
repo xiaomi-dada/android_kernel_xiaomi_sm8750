@@ -16,6 +16,10 @@
  * GNU General Public License for more details.
  *
  */
+#ifndef MCA_LOG_TAG
+#define MCA_LOG_TAG "mca_battery_psy"
+#endif
+
 #include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -32,10 +36,6 @@
 #include <mca/platform/platform_buckchg_class.h>
 #include <mca/strategy/strategy_fg_class.h>
 #include "inc/mca_battery_psy.h"
-
-#ifndef MCA_LOG_TAG
-#define MCA_LOG_TAG "mca_battery_psy"
-#endif
 
 static bool battery_psy_is_wls_available(struct batt_psy_info *info)
 {

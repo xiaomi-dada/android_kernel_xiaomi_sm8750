@@ -16,6 +16,10 @@
  * GNU General Public License for more details.
  *
  */
+#ifndef MCA_LOG_TAG
+#define MCA_LOG_TAG "charger_usb_psy"
+#endif
+
 #include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -31,10 +35,6 @@
 #include <mca/protocol/protocol_class.h>
 #include <mca/platform/platform_buckchg_class.h>
 #include "inc/mca_charger_usb_psy.h"
-
-#ifndef MCA_LOG_TAG
-#define MCA_LOG_TAG "charger_usb_psy"
-#endif
 
 static enum power_supply_property usb_psy_props[] = {
 	POWER_SUPPLY_PROP_PRESENT,

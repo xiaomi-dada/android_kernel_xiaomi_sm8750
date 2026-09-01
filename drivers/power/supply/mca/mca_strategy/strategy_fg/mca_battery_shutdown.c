@@ -16,6 +16,10 @@
  * GNU General Public License for more details.
  *
  */
+#ifndef MCA_LOG_TAG
+#define MCA_LOG_TAG "mca_battery_shutdown"
+#endif
+
 #include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -44,10 +48,6 @@
 #define BATT_SHUTDOWN_NAME_RETRY 20
 #define BATT_SHUTDOWN_NAME_RETRY_MS 100
 #define BATT_SHUTDOWN_NVT_NAME "3XM31"
-
-#ifndef MCA_LOG_TAG
-#define MCA_LOG_TAG "mca_battery_shutdown"
-#endif
 
 #define MCA_BATTERY_SHUTDOWN_VCUTTOFF_FW 3050
 #define MCA_BATTERY_SHUTDOWN_VCUTTOFF_SHUTDOWN_DELAY 3050

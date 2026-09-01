@@ -17,6 +17,10 @@
  *
  */
 
+#ifndef MCA_LOG_TAG
+#define MCA_LOG_TAG "mca_charger_wireless_psy"
+#endif
+
 #include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -32,10 +36,6 @@
 #include "inc/mca_charger_wireless_psy.h"
 #include <mca/strategy/strategy_fg_class.h>
 #include <mca/strategy/strategy_wireless_class.h>
-
-#ifndef MCA_LOG_TAG
-#define MCA_LOG_TAG "mca_charger_wireless_psy"
-#endif
 
 static bool is_batt_available(struct wireless_psy_info *info)
 {

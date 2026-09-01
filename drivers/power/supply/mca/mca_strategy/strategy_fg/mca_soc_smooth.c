@@ -16,6 +16,10 @@
  * GNU General Public License for more details.
  *
  */
+#ifndef MCA_LOG_TAG
+#define MCA_LOG_TAG "mca_soc_smooth"
+#endif
+
 #include <mca/common/mca_log.h>
 #include <linux/module.h>
 #include <linux/power_supply.h>
@@ -25,10 +29,6 @@
 #include "inc/mca_soc_smooth.h"
 #include <mca/protocol/protocol_class.h>
 #include <mca/smartchg/smart_chg_class.h>
-
-#ifndef MCA_LOG_TAG
-#define MCA_LOG_TAG "mca_soc_smooth"
-#endif
 
 #ifndef abs
 #define abs(x) ((x) > 0 ? (x) : -(x))

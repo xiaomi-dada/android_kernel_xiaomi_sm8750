@@ -16,6 +16,10 @@
  * GNU General Public License for more details.
  *
  */
+#ifndef MCA_LOG_TAG
+#define MCA_LOG_TAG "mca_quick_wireless"
+#endif
+
 #include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -48,10 +52,6 @@
 #include <linux/hwid.h>
 #include "inc/mca_quick_wireless.h"
 #include <mca/platform/platform_loadsw_class.h>
-
-#ifndef MCA_LOG_TAG
-#define MCA_LOG_TAG "mca_quick_wireless"
-#endif
 
 #ifndef BIT
 #define BIT(n) (1 << (n))

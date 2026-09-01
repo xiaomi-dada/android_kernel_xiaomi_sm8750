@@ -17,6 +17,10 @@
  *
  */
 
+#ifndef MCA_LOG_TAG
+#define MCA_LOG_TAG "nuvolta_1652"
+#endif
+
 #include <linux/i2c.h>
 #include <linux/kernel.h>
 #include <linux/interrupt.h>
@@ -46,10 +50,6 @@
 #include <mca/common/mca_sysfs.h>
 #include <mca/strategy/strategy_class.h>
 #include <mca/strategy/strategy_wireless_class.h>
-
-#ifndef MCA_LOG_TAG
-#define MCA_LOG_TAG "nuvolta_1652"
-#endif
 
 #define I2C_RETRY_CNT 3
 

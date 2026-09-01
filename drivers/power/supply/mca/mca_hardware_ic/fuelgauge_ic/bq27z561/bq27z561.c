@@ -14,6 +14,10 @@
  * GNU General Public License for more details.
  */
 
+#ifndef MCA_LOG_TAG
+#define MCA_LOG_TAG "fuelgauge_ic"
+#endif
+
 #include <linux/device.h>
 #include <linux/init.h>
 #include <linux/of.h>
@@ -39,10 +43,6 @@
 #include "inc/bq27z561.h"
 #include "inc/bq27z561_nfg1000_fw.h"
 #include <mca/platform/platform_buckchg_class.h>
-
-#ifndef MCA_LOG_TAG
-#define MCA_LOG_TAG "fuelgauge_ic"
-#endif
 
 #define BLOCK_LENGTH_MAX	64
 #define REG_BLOCK_LENGTH	32

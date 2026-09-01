@@ -16,6 +16,10 @@
  * GNU General Public License for more details.
  *
  */
+#ifndef MCA_LOG_TAG
+#define MCA_LOG_TAG "mca_business_voter"
+#endif
+
 #include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -32,10 +36,6 @@
 #include <linux/platform_device.h>
 #include <mca/common/mca_log.h>
 #include <mca/common/mca_voter.h>
-
-#ifndef MCA_LOG_TAG
-#define MCA_LOG_TAG "mca_business_voter"
-#endif
 
 struct business_votable_info {
 	struct device *dev;

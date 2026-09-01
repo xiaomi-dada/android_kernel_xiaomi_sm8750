@@ -17,6 +17,10 @@
  *
  */
 
+#ifndef MCA_LOG_TAG
+#define MCA_LOG_TAG "mca_wireless_revchg"
+#endif
+
 #include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -48,10 +52,6 @@
 #include <mca/protocol/protocol_class.h>
 #include <mca/common/mca_sysfs.h>
 #include <mca/common/mca_charge_mievent.h>
-
-#ifndef MCA_LOG_TAG
-#define MCA_LOG_TAG "mca_wireless_revchg"
-#endif
 
 static int mca_wireless_rev_charge_config(int enable);
 static void mca_wireless_rev_set_reverse_src(int boost_src);

@@ -16,6 +16,10 @@
  * GNU General Public License for more details.
  *
  */
+#ifndef MCA_LOG_TAG
+#define MCA_LOG_TAG "mca_business_battery"
+#endif
+
 #include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -38,10 +42,6 @@
 #include <mca/common/mca_sysfs.h>
 #include "inc/mca_business_battery.h"
 #include "inc/mca_battery_psy.h"
-
-#ifndef MCA_LOG_TAG
-#define MCA_LOG_TAG "mca_business_battery"
-#endif
 
 static struct business_battery *g_mca_business_battery;
 

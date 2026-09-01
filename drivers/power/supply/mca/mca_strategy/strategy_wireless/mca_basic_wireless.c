@@ -17,6 +17,10 @@
  *
  */
 
+#ifndef MCA_LOG_TAG
+#define MCA_LOG_TAG "mca_basic_wireless"
+#endif
+
 #include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -59,10 +63,6 @@
 #include <mca/common/mca_workqueue.h>
 #include "../strategy_wireless/inc/mca_wireless_revchg.h"
 #include "../../mca_business/business_charger/inc/mca_business_charger.h"
-
-#ifndef MCA_LOG_TAG
-#define MCA_LOG_TAG "mca_basic_wireless"
-#endif
 
 static void strategy_wireless_rx_fastcharge_work(struct work_struct *work);
 static void strategy_wireless_mutex_unlock_work(struct work_struct *work);

@@ -16,6 +16,10 @@
  * GNU General Public License for more details.
  *
  */
+#ifndef MCA_LOG_TAG
+#define MCA_LOG_TAG "mca_quick_charge"
+#endif
+
 #include <linux/kernel.h>
 #include <linux/string.h>
 #include <linux/reboot.h>
@@ -43,10 +47,6 @@
 #include <linux/hwid.h>
 #include <mca/shared_memory/charger_partition_class.h>
 #include <mca/platform/platform_loadsw_class.h>
-
-#ifndef MCA_LOG_TAG
-#define MCA_LOG_TAG "mca_quick_charge"
-#endif
 
 #ifndef BIT
 #define BIT(n) (1 << (n))

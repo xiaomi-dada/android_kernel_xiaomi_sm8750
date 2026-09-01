@@ -16,6 +16,10 @@
  * GNU General Public License for more details.
  *
  */
+#ifndef MCA_LOG_TAG
+#define MCA_LOG_TAG "mca_strategy_fg"
+#endif
+
 #include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -60,10 +64,6 @@
 
 #ifndef PROBE_CNT_MAX
 #define PROBE_CNT_MAX 10
-#endif
-
-#ifndef MCA_LOG_TAG
-#define MCA_LOG_TAG "mca_strategy_fg"
 #endif
 
 #define STRATEGY_FG_WORK_INTERVAL_FAST 1000

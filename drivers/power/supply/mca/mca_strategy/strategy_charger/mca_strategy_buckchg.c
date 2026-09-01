@@ -16,6 +16,10 @@
  * GNU General Public License for more details.
  *
  */
+#ifndef MCA_LOG_TAG
+#define MCA_LOG_TAG "mca_strategy_buckchg"
+#endif
+
 #include <linux/module.h>
 #include <linux/stat.h>
 #include <linux/init.h>
@@ -57,10 +61,6 @@
 #include <mca/common/mca_workqueue.h>
 #include <mca/common/mca_smem.h>
 #include <mca/common/mca_event.h>
-
-#ifndef MCA_LOG_TAG
-#define MCA_LOG_TAG "mca_strategy_buckchg"
-#endif
 
 #define CHECK_VBUS_9V_HIGH_TH		7600
 #define CHECK_VBUS_5V_LOW_TH		6000
