@@ -242,12 +242,20 @@ static ssize_t cc_toggle_store(const struct class *c,
 				const struct class_attribute *attr,
 			       const char *buf, size_t count)
 {
-	bool val;
+	int val;
+	int ret;
 
-	if (kstrtobool(buf, &val))
+	/*
+	 * An integer, not a boolean: the shipped driver takes any number and
+	 * treats a non-zero one as on, and refusing "2" would turn a write that
+	 * used to work into an error.
+	 */
+	if (kstrtoint(buf, 10, &val))
 		return -EINVAL;
 
-	protocol_class_pd_set_cc_toggle(TYPEC_PORT_0, val);
+	ret = protocol_class_pd_set_cc_toggle(TYPEC_PORT_0, val != 0);
+	if (ret < 0)
+		return ret;
 
 	return count;
 }
