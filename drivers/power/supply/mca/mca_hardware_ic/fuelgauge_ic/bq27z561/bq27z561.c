@@ -5060,6 +5060,17 @@ static noinline int nfg1000_ota_update_check(void *data, int flag)
 	if (nfg1000_update_judge(bq))
 		return 0;
 
+	/*
+	 * The shipped module does something else here: it unseals the gauge
+	 * for full access first, writing 0x303b, 0x8ab9, 0xc32e and 0x5947 to
+	 * AltManufacturerAccess three milliseconds apart, then reading the
+	 * seal state back from MAC 0x54 and retrying the whole thing up to
+	 * three times before giving up.  This writes 0x0f00 to CONTROL
+	 * instead.  Which of the two the part actually wants is not something
+	 * that can be settled without its datasheet, and getting it wrong
+	 * during a flash is not worth guessing at, so this is left as it is
+	 * and noted here.
+	 */
 	cmd[0] = 0x00; cmd[1] = 0x0f;
 	nfg1000_write(bq, 0x00, cmd, 2);
 	usleep_range(2000, 2100);
