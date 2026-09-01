@@ -25,6 +25,11 @@
 #define STATEGY_INPUT_9V_DEFAULT_VALUE 1600
 #define STATEGY_CHARGE_CURRENT_DEFAULT_VALUE 4000
 #define STATEGY_ITERM_DEFAULT_VALUE 500
+/*
+ * Platforms 4 and 5 aggregate the termination current by minimum rather than
+ * by maximum; the mask takes the pair.
+ */
+#define STRATEGY_ITERM_MIN_PLATFORM 4
 #define STATEGY_VTERM_DEFAULT_VALUE 4400
 #define STATEGY_SUPPORT_MULTI_BUCK 0
 #define STATEGY_CHARGE_ENABLE 1

@@ -612,6 +612,7 @@ static int strategy_buckchg_set_9v_ichg(struct mca_votable *votable,
 static int strategy_buckchg_init_voter(struct strategy_buckchg_dev *info)
 {
 	/* buck charge */
+	struct mca_hwid_info *hwid;
 	info->chg_enable_voter = mca_create_votable("chg_enable", MCA_VOTE_AND,
 			strategy_buckchg_enable, STATEGY_CHARGE_DISENABLE, info);
 	if (IS_ERR(info->chg_enable_voter))
@@ -629,12 +630,16 @@ static int strategy_buckchg_init_voter(struct strategy_buckchg_dev *info)
 	if (IS_ERR(info->charge_limit_voter))
 		return -1;
 
-	if (0)
-		info->iterm_voter = mca_create_votable("term_curr", MCA_VOTE_MIN,
-			strategy_buckchg_set_iterm, STATEGY_ITERM_DEFAULT_VALUE, info);
-	else
-		info->iterm_voter = mca_create_votable("term_curr", MCA_VOTE_MAX,
-			strategy_buckchg_set_iterm, STATEGY_ITERM_DEFAULT_VALUE, info);
+	/*
+	 * Two platforms take the smallest termination current their clients ask
+	 * for rather than the largest, so charging stops at the first client
+	 * that is satisfied instead of the last.
+	 */
+	hwid = mca_get_hwid_info();
+	info->iterm_voter = mca_create_votable("term_curr",
+		(hwid && (hwid->platform_version & ~1u) == STRATEGY_ITERM_MIN_PLATFORM) ?
+			MCA_VOTE_MIN : MCA_VOTE_MAX,
+		strategy_buckchg_set_iterm, STATEGY_ITERM_DEFAULT_VALUE, info);
 	if (IS_ERR(info->iterm_voter))
 		return -1;
 
