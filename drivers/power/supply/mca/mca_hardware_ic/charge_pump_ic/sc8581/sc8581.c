@@ -160,6 +160,16 @@
 #define SC8581_WPCGATE_EN		BIT(4)
 #define SC8581_OVPGATE_EN		BIT(3)
 
+/* Register 0Ah, the pump's own view of what it is doing. */
+#define SC8581_CP_SWITCHING_STAT	BIT(1)
+#define SC8581_VBUS_ERRORHI_STAT	BIT(3)
+#define SC8581_VBUS_ERRORLO_STAT	BIT(4)
+#define SC8581_PIN_DIAG_FALL_FLAG	BIT(0)
+
+/* Register 10h, what is present on each rail. */
+#define SC8581_VOUT_INSERT_STAT		BIT(3)
+#define SC8581_ALL_PRESENT_STAT		GENMASK(5, 0)
+
 /* How many times the pump is asked to turn around before giving up. */
 #define SC8581_SET_REVCHG_RETRY		10
 
@@ -309,6 +319,8 @@ struct sc8581_device {
 	int			work_mode;
 	int			operation_mode;
 	int			chip_vendor;
+	/* Last state of the CBOOT pin diagnostic, to report each change once. */
+	bool			cboot_short;
 	u8			adc_mode;
 	u32			product_cfg;
 	int			cp_role;
@@ -1399,6 +1411,7 @@ static const struct {
 static int sc8581_dump_important_regs(struct sc8581_device *chip)
 {
 	u8 vals[SC8581_REG_FLT_FLAG + 1] = { };
+	bool cboot_short;
 	unsigned int i;
 	int rc;
 
@@ -1423,9 +1436,56 @@ static int sc8581_dump_important_regs(struct sc8581_device *chip)
 		if (!(vals[sc8581_faults[i].reg] & sc8581_faults[i].bit))
 			continue;
 
+		/*
+		 * The SC8585 reports this one against its own input rather
+		 * than the cell, so it says nothing about the battery.
+		 */
+		if (sc8581_faults[i].event == MCA_EVENT_CP_IBAT_OCP &&
+		    chip->chip_vendor == SC8585_VENDOR)
+			continue;
+
 		mca_log_err("%s\n", sc8581_faults[i].name);
 		mca_event_block_notify(MCA_EVENT_TYPE_CP_INFO,
 				       sc8581_faults[i].event, NULL);
+	}
+
+	/*
+	 * Everything below says why the pump stopped, so it only means
+	 * anything once it has: while it is switching these read as the
+	 * ordinary running state.
+	 */
+	if (vals[SC8581_REG_ERROR_HL] & SC8581_CP_SWITCHING_STAT)
+		return 0;
+
+	mca_log_info("cp switching stop, enter abnormal charging judge\n");
+
+	if (!(vals[SC8581_REG_INT_STAT] & SC8581_VOUT_INSERT_STAT)) {
+		mca_log_info("VOUT UVLO\n");
+		mca_event_block_notify(MCA_EVENT_TYPE_CP_INFO,
+				       MCA_EVENT_CP_VOUT_UVLO, NULL);
+	}
+
+	if ((vals[SC8581_REG_INT_STAT] & SC8581_ALL_PRESENT_STAT) !=
+	    SC8581_ALL_PRESENT_STAT)
+		mca_log_info("VIN have problem\n");
+
+	if (vals[SC8581_REG_ERROR_HL] & SC8581_VBUS_ERRORHI_STAT)
+		mca_log_info("VBUS_ERRORHI_STAT\n");
+
+	if (vals[SC8581_REG_ERROR_HL] & SC8581_VBUS_ERRORLO_STAT)
+		mca_log_info("VBUS_ERRORLO_STAT\n");
+
+	/*
+	 * The pin diagnostic latches either way round, and both edges matter:
+	 * one says the bootstrap capacitor has just failed, the other that it
+	 * has come back.  Report each change once rather than every dump.
+	 */
+	cboot_short = !!(vals[SC8581_REG_ERROR_HL] & SC8581_PIN_DIAG_FALL_FLAG);
+	mca_log_info("CBOOT SHORT/OPEN %s\n", cboot_short ? "111" : "000");
+	if (cboot_short != chip->cboot_short) {
+		chip->cboot_short = cboot_short;
+		mca_event_block_notify(MCA_EVENT_TYPE_CP_INFO,
+				       MCA_EVENT_CP_CBOOT_FAIL, NULL);
 	}
 
 	return 0;
