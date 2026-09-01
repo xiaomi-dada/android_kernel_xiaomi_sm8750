@@ -668,6 +668,11 @@ struct dwc3_msm {
 	struct regmap		*wcd_regmap;
 	u32			wcd_equ;
 	u32			wcd_equ_host;
+	/*
+	 * Whether the attached headset has been told it may use more than two
+	 * channels.  Userspace decides, because only it knows what is playing.
+	 */
+	int			audio_multi_chann_support;
 	bool			dynamic_disable;
 
 	struct dentry		*dbg_dir;
@@ -5453,16 +5458,23 @@ static DEVICE_ATTR_RO(super_speed);
 
 enum dwc3_msm_sysfs_attr_list {
 	DWC3_MSM_PROP_SUPER_SPEED,
+	DWC3_MSM_PROP_AUDIO_MULTI_CHANN_SUPPORT,
 };
 
 #define DWC3_MSM_SYSFS_ATTRS_SIZE ARRAY_SIZE(dwc3_msm_sysfs_field_tbl)
 
 static ssize_t dwc3_msm_sysfs_show(struct device *dev,
 				   struct device_attribute *attr, char *buf);
+static ssize_t dwc3_msm_sysfs_store(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t count);
 
 struct mca_sysfs_attr_info dwc3_msm_sysfs_field_tbl[] = {
 	mca_sysfs_attr_ro(dwc3_msm_sysfs, 0440, DWC3_MSM_PROP_SUPER_SPEED,
 			  super_speed),
+	mca_sysfs_attr_rw(dwc3_msm_sysfs, 0660,
+			  DWC3_MSM_PROP_AUDIO_MULTI_CHANN_SUPPORT,
+			  audio_multi_chann_support),
 };
 
 static ssize_t dwc3_msm_sysfs_show(struct device *dev,
@@ -5483,9 +5495,34 @@ static ssize_t dwc3_msm_sysfs_show(struct device *dev,
 		else
 			pr_err("%s: dwc3 has been suspend\n", __func__);
 		return scnprintf(buf, PAGE_SIZE, "%s\n", ret ? "true" : "false");
+	case DWC3_MSM_PROP_AUDIO_MULTI_CHANN_SUPPORT:
+		return scnprintf(buf, PAGE_SIZE, "%s\n",
+				 g_mdwc->audio_multi_chann_support ?
+					 "true" : "false");
 	default:
 		return 0;
 	}
+}
+
+static ssize_t dwc3_msm_sysfs_store(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t count)
+{
+	struct mca_sysfs_attr_info *attr_info;
+	int val;
+
+	attr_info = mca_sysfs_lookup_attr(attr->attr.name,
+			dwc3_msm_sysfs_field_tbl, DWC3_MSM_SYSFS_ATTRS_SIZE);
+	if (!attr_info || !g_mdwc)
+		return -1;
+
+	if (kstrtoint(buf, 10, &val))
+		return -EINVAL;
+
+	if (attr_info->sysfs_attr_name == DWC3_MSM_PROP_AUDIO_MULTI_CHANN_SUPPORT)
+		g_mdwc->audio_multi_chann_support = val;
+
+	return count;
 }
 
 /*
@@ -6892,9 +6929,50 @@ static void dwc3_msm_override_audio_drv_ops(struct device *dev)
  * userspace entities to detect an audio device removal, so it can stop
  * the current session.
  */
+/*
+ * One Xiaomi headset needs a vendor request before it will carry more than two
+ * channels, and it does not always answer the first time.
+ */
+#define HEADSET_MS_VID			0x2717
+#define HEADSET_MS_PID			0x50d3
+#define HEADSET_MS_REQUEST		1
+#define HEADSET_MS_VALUE		0x08ff
+#define HEADSET_MS_TIMEOUT_MS		1000
+#define HEADSET_MS_TRIES		5
+
+static void usb_send_headset_msg(struct usb_device *udev)
+{
+	__le16 value = cpu_to_le16(HEADSET_MS_VALUE);
+	int i, ret;
+
+	dev_info(&udev->dev, "%s: start\n", __func__);
+
+	for (i = 0; i < HEADSET_MS_TRIES; i++) {
+		ret = usb_control_msg(udev, usb_sndctrlpipe(udev, 0),
+				      HEADSET_MS_REQUEST,
+				      USB_DIR_OUT | USB_TYPE_VENDOR |
+					      USB_RECIP_DEVICE,
+				      0, 0, &value, sizeof(value),
+				      HEADSET_MS_TIMEOUT_MS);
+		if (ret >= 0)
+			return;
+
+		dev_info(&udev->dev, "%s: send msg failed retry %d, result is %d\n",
+			 __func__, i, ret);
+	}
+}
+
 static void dwc3_msm_update_interfaces(struct usb_device *udev)
 {
 	int i;
+
+	if (le16_to_cpu(udev->descriptor.idVendor) == HEADSET_MS_VID &&
+	    le16_to_cpu(udev->descriptor.idProduct) == HEADSET_MS_PID &&
+	    g_mdwc && g_mdwc->audio_multi_chann_support) {
+		dev_info(&udev->dev,
+			 "device and headset all support multi channels\n");
+		usb_send_headset_msg(udev);
+	}
 
 	if (!udev->actconfig)
 		return;
