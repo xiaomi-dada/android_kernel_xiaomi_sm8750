@@ -2582,7 +2582,13 @@ static int mca_strategy_update_fg_info(struct strategy_fg *fg)
 	fg->batt_raw_soc =
 		((fg->batt_rm / 1000) * 10000) / (fg->batt_fcc / 1000);
 
-	if (0) {
+	/*
+	 * strategy_fg_get_batt_info() has nothing to read in one go for two
+	 * cells in series behind separate gauges, so the fields it would have
+	 * filled are read one at a time here instead.  Each of these dispatches
+	 * on fg_type again and lands on the series getters.
+	 */
+	if (fg->cfg.fg_type == MCA_FG_TYPE_SERIES) {
 		ret = strategy_fg_ops_get_curr(fg, &fg->batt_current);
 		ret |= strategy_fg_update_batt_temp(fg);
 		ret |= strategy_fg_ops_get_rsoc(fg, &fg->batt_rsoc);
