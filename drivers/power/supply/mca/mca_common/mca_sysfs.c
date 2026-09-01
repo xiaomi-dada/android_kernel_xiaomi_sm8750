@@ -192,6 +192,13 @@ struct device *mca_sysfs_create_group(const char *cls_name,
 	return dev;
 
 err:
+	/*
+	 * device_unregister() already drops the reference device_create()
+	 * took, so this is the only put the error path needs.  The shipped
+	 * module calls put_device() first and then device_unregister(),
+	 * which frees the device and then walks it again -- do not "restore
+	 * parity" by adding that back.
+	 */
 	device_unregister(dev);
 
 	return NULL;
