@@ -1204,7 +1204,7 @@ static void mca_wireless_quick_charge_select_stage(struct mca_wireless_quick_cha
 			}
 			stage = mca_wireless_quick_charge_jump_stage(stage, info->proc_data.cur_volt_paraller[j]);
 			ffc_flag = strategy_class_fg_get_fastcharge();
-			if (stage > info->proc_data.parall_cur_stage[j] || (ffc_flag != info->proc_data.ffc_flag))
+			if (stage != info->proc_data.parall_cur_stage[j] || (ffc_flag != info->proc_data.ffc_flag))
 				info->proc_data.parall_cur_stage[j] = stage;
 			mca_log_err("parall_cur_stage[%d] %d", j, info->proc_data.parall_cur_stage[j]);
 		}
