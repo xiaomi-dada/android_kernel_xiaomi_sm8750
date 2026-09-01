@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+config MI_HARDWARE_ID
+	tristate "Xiaomi board identification"
+	help
+	  Answers which board this is and which region it was sold in, from
+	  what the bootloader puts on the kernel command line.  The Xiaomi
+	  drivers use it to adjust for hardware revision.
+
+	  Say M here to build it as a module, hwid.ko.  If unsure, say N.

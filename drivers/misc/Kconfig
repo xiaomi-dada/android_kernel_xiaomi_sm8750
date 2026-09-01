@@ -604,4 +604,27 @@ source "drivers/misc/cardreader/Kconfig"
 source "drivers/misc/uacce/Kconfig"
 source "drivers/misc/pvpanic/Kconfig"
 source "drivers/misc/mchp_pci1xxxx/Kconfig"
+source "drivers/misc/hwid/Kconfig"
+
+config IR_SPI_XIAOMI
+	tristate "Xiaomi consumer IR emitter over SPI"
+	depends on SPI && !IR_SPI
+	help
+	  Consumer IR emitter driven over SPI, as Xiaomi drives it: userspace
+	  renders a burst into a bitmap and writes it to /dev/ir_spi, having
+	  set its length with an ioctl first.  This is the interface Xiaomi's
+	  IR HAL expects.  IR_SPI drives the same hardware through rc-core and
+	  offers /dev/lirc0 instead; only one of the two can claim it.
+
+	  Say M here to build it as a module, ir-spi.ko.  If unsure, say N.
+
+config MI_EVENT
+	tristate "Xiaomi driver event reporting"
+	help
+	  Lets the Xiaomi drivers build and submit events.  Nothing forwards
+	  them anywhere; see include/miev/mievent.h.
+
+	  Say M here to build it as a module, mievent.ko.  If unsure, say N.
+
+
 endmenu
