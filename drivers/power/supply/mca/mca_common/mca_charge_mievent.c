@@ -186,7 +186,7 @@ static struct mievent_upload_type_plug g_upload_plug[MIEVENT_PLUG_MAX] = {
 	{ .max_count = 1 },
 };
 
-static struct mievent_upload_type_time g_upload_time[MIEVENT_TIME_MAX] = {
+static struct mievent_upload_type_time g_upload_type_time_info[MIEVENT_TIME_MAX] = {
 	{ .time_interval = 604800 },
 	{ .time_interval = 600 },
 	{ .time_interval = 600 },
@@ -738,7 +738,7 @@ void mca_charge_mievent_report(int event_index, void *data, int data_len)
 		if (info->upload_index >= MIEVENT_TIME_MAX)
 			return;
 
-		t = &g_upload_time[info->upload_index];
+		t = &g_upload_type_time_info[info->upload_index];
 		now_sec = div_s64(ktime_get_coarse_boottime(), NSEC_PER_SEC);
 
 		if (t->count && now_sec - t->time_last < t->time_interval) {
@@ -852,8 +852,8 @@ void mca_charge_mievent_set_state(enum charge_mievent_state_ele state,
 			if (info->upload_index >= MIEVENT_TIME_MAX)
 				return;
 
-			g_upload_time[info->upload_index].time_last = 0;
-			g_upload_time[info->upload_index].count = 0;
+			g_upload_type_time_info[info->upload_index].time_last = 0;
+			g_upload_type_time_info[info->upload_index].count = 0;
 		} else if (info->upload_type == MIEVENT_UPLOAD_TYPE_PLUG) {
 			if (info->upload_index >= MIEVENT_PLUG_MAX)
 				return;

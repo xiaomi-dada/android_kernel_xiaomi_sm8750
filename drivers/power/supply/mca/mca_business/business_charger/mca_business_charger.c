@@ -827,7 +827,7 @@ enum business_charger_debug_ctrl_list {
 	DEBUG_CTRL_MAX,
 };
 
-static struct business_charger_debug_ctrl g_debug_ctrl_tbl[DEBUG_CTRL_MAX] = {
+static struct business_charger_debug_ctrl g_debug_ctrl[DEBUG_CTRL_MAX] = {
 	[DEBUG_CTRL_DOUBLE85]		= { "double85", 1 },
 	[DEBUG_CTRL_REMOVE_TEMP_LIMIT]	= { "remove_temp_limit", 1 },
 	[DEBUG_CTRL_SOC_LIMIT]		= { "soc_limit", 2 },
@@ -836,7 +836,7 @@ static struct business_charger_debug_ctrl g_debug_ctrl_tbl[DEBUG_CTRL_MAX] = {
 
 static bool business_charger_debug_ctrl_named(const char *buf, int id)
 {
-	const char *name = g_debug_ctrl_tbl[id].name;
+	const char *name = g_debug_ctrl[id].name;
 
 	return !strncmp(buf, name, strnlen(name, DEBUG_CTRL_NAME_LEN));
 }
@@ -858,7 +858,7 @@ static void business_charger_process_debug_ctrl_input(const char *buf)
 			mca_log_err("invalid input\n");
 			return;
 		}
-		if (val == g_debug_ctrl_tbl[DEBUG_CTRL_DOUBLE85].val[0])
+		if (val == g_debug_ctrl[DEBUG_CTRL_DOUBLE85].val[0])
 			return;
 		mca_event_block_notify(MCA_EVENT_TYPE_DEBUG,
 			MCA_EVENT_DEBUG_CTRL_DOUBLE85, &val);
@@ -871,7 +871,7 @@ static void business_charger_process_debug_ctrl_input(const char *buf)
 			mca_log_err("invalid input\n");
 			return;
 		}
-		if (val == g_debug_ctrl_tbl[DEBUG_CTRL_REMOVE_TEMP_LIMIT].val[0])
+		if (val == g_debug_ctrl[DEBUG_CTRL_REMOVE_TEMP_LIMIT].val[0])
 			return;
 		mca_event_block_notify(MCA_EVENT_TYPE_DEBUG,
 			MCA_EVENT_DEBUG_CTRL_REMOVE_TEMP_LIMIT, &val);
@@ -891,8 +891,8 @@ static void business_charger_process_debug_ctrl_input(const char *buf)
 			mca_log_err("invalid soc value: %d %d\n", val, stop);
 			return;
 		}
-		if (val == g_debug_ctrl_tbl[DEBUG_CTRL_SOC_LIMIT].val[0] &&
-		    stop == g_debug_ctrl_tbl[DEBUG_CTRL_SOC_LIMIT].val[1])
+		if (val == g_debug_ctrl[DEBUG_CTRL_SOC_LIMIT].val[0] &&
+		    stop == g_debug_ctrl[DEBUG_CTRL_SOC_LIMIT].val[1])
 			return;
 		packed = (val << DEBUG_CTRL_SOC_SHIFT) | stop;
 		mca_event_block_notify(MCA_EVENT_TYPE_DEBUG,
@@ -906,7 +906,7 @@ static void business_charger_process_debug_ctrl_input(const char *buf)
 			mca_log_err("invalid input\n");
 			return;
 		}
-		if (val == g_debug_ctrl_tbl[DEBUG_CTRL_MEMORY_TEST].val[0])
+		if (val == g_debug_ctrl[DEBUG_CTRL_MEMORY_TEST].val[0])
 			return;
 		mca_event_block_notify(MCA_EVENT_TYPE_DEBUG,
 			MCA_EVENT_DEBUG_CTRL_MEMORY_TEST, &val);
@@ -935,10 +935,10 @@ static void business_charger_process_debug_ctrl(unsigned int event, void *data, 
 {
 	int value = *((int *)data);
 
-	if (value == g_debug_ctrl_tbl[id].val[0])
+	if (value == g_debug_ctrl[id].val[0])
 		return;
 
-	g_debug_ctrl_tbl[id].val[0] = value;
+	g_debug_ctrl[id].val[0] = value;
 	business_charger_process_debug_ctrl_flag(event, value);
 }
 
@@ -952,12 +952,12 @@ static void business_charger_process_debug_ctrl_soc_limit(unsigned int event, vo
 		mca_log_err("soc_limit value is invalid: %d\n", packed);
 		return;
 	}
-	if (start == g_debug_ctrl_tbl[DEBUG_CTRL_SOC_LIMIT].val[0] &&
-	    stop == g_debug_ctrl_tbl[DEBUG_CTRL_SOC_LIMIT].val[1])
+	if (start == g_debug_ctrl[DEBUG_CTRL_SOC_LIMIT].val[0] &&
+	    stop == g_debug_ctrl[DEBUG_CTRL_SOC_LIMIT].val[1])
 		return;
 
-	g_debug_ctrl_tbl[DEBUG_CTRL_SOC_LIMIT].val[0] = start;
-	g_debug_ctrl_tbl[DEBUG_CTRL_SOC_LIMIT].val[1] = stop;
+	g_debug_ctrl[DEBUG_CTRL_SOC_LIMIT].val[0] = start;
+	g_debug_ctrl[DEBUG_CTRL_SOC_LIMIT].val[1] = stop;
 	mca_strategy_func_process(STRATEGY_FUNC_TYPE_BUCK_CHARGE, event, packed);
 }
 
@@ -1712,10 +1712,10 @@ static ssize_t bussiness_charger_sysfs_show(struct device *dev,
 	case BUSSINESS_CHARGER_PROP_DEBUG_CTRL:
 		for (i = 0; i < DEBUG_CTRL_MAX; i++) {
 			count += scnprintf(buf + count, PAGE_SIZE - count, "%s",
-				g_debug_ctrl_tbl[i].name);
-			for (j = 0; j < g_debug_ctrl_tbl[i].argc; j++)
+				g_debug_ctrl[i].name);
+			for (j = 0; j < g_debug_ctrl[i].argc; j++)
 				count += scnprintf(buf + count, PAGE_SIZE - count, " %d",
-					g_debug_ctrl_tbl[i].val[j]);
+					g_debug_ctrl[i].val[j]);
 			count += scnprintf(buf + count, PAGE_SIZE - count, "\n");
 		}
 		break;

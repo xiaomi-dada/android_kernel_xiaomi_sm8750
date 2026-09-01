@@ -32,7 +32,7 @@ struct platform_wireless_class_ops_data {
 };
 
 static struct platform_wireless_class_ops_data
-	g_wireless_data[WIRELESS_ROLE_MAX];
+	platform_wireless_data[WIRELESS_ROLE_MAX];
 
 int platform_class_wireless_register_ops(enum platform_class_wireless_role role,
 					 const struct platform_class_wireless_ops *ops,
@@ -41,8 +41,8 @@ int platform_class_wireless_register_ops(enum platform_class_wireless_role role,
 	if (role >= WIRELESS_ROLE_MAX || !ops)
 		return -EOPNOTSUPP;
 
-	g_wireless_data[role].ops = ops;
-	g_wireless_data[role].data = data;
+	platform_wireless_data[role].ops = ops;
+	platform_wireless_data[role].data = data;
 
 	return 0;
 }
@@ -59,10 +59,10 @@ wireless_lookup(enum platform_class_wireless_role role)
 	if (role >= WIRELESS_ROLE_MAX)
 		return NULL;
 
-	if (!g_wireless_data[role].ops)
+	if (!platform_wireless_data[role].ops)
 		return NULL;
 
-	return &g_wireless_data[role];
+	return &platform_wireless_data[role];
 }
 
 int platform_class_wireless_check_firmware_state(

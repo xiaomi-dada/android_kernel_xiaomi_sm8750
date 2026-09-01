@@ -72,7 +72,7 @@ static const char * const mca_charge_if_type_name[MCA_CHARGE_IF_CHG_TYPE_END] = 
  * One implementation per charging path.  A request that does not name a path
  * is about the wired buck charger, which is the one every phone has.
  */
-static struct mca_charge_if_ops *g_charge_if_ops[MCA_CHARGE_IF_CHG_TYPE_END];
+static struct mca_charge_if_ops *g_mca_charge_if_ops[MCA_CHARGE_IF_CHG_TYPE_END];
 
 #define MCA_CHARGE_IF_DEFAULT_TYPE	MCA_CHARGE_IF_CHG_TYPE_BUCK
 
@@ -106,7 +106,7 @@ int mca_charge_if_ops_register(struct mca_charge_if_ops *ops)
 		return -1;
 	}
 
-	g_charge_if_ops[type] = ops;
+	g_mca_charge_if_ops[type] = ops;
 
 	return 0;
 }
@@ -165,7 +165,7 @@ static ssize_t mca_charge_if_sysfs_show(struct device *dev,
 			memset(state, 0, sizeof(state));
 			memset(line, 0, sizeof(line));
 
-			ops = g_charge_if_ops[i];
+			ops = g_mca_charge_if_ops[i];
 			if (!ops || !ops->get_input_suspend)
 				continue;
 
@@ -186,7 +186,7 @@ static ssize_t mca_charge_if_sysfs_show(struct device *dev,
 		return len;
 	}
 
-	ops = g_charge_if_ops[MCA_CHARGE_IF_DEFAULT_TYPE];
+	ops = g_mca_charge_if_ops[MCA_CHARGE_IF_DEFAULT_TYPE];
 	if (!ops)
 		return -EINVAL;
 
@@ -266,7 +266,7 @@ static ssize_t mca_charge_if_sysfs_store(struct device *dev,
 	if (type < 0 || type >= MCA_CHARGE_IF_CHG_TYPE_END)
 		return -EINVAL;
 
-	ops = g_charge_if_ops[type];
+	ops = g_mca_charge_if_ops[type];
 	if (!ops)
 		return -EINVAL;
 

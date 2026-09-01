@@ -25,7 +25,7 @@ struct mca_strategy_func_data {
 	void			*data;
 };
 
-static struct mca_strategy_func_data g_mca_strategy[STRATEGY_FUNC_TYPE_MAX];
+static struct mca_strategy_func_data g_mca_stg_func[STRATEGY_FUNC_TYPE_MAX];
 
 /**
  * mca_strategy_ops_register() - offer a strategy to the stack
@@ -43,10 +43,10 @@ int mca_strategy_ops_register(enum mca_strategy_func_type type,
 	if (type >= STRATEGY_FUNC_TYPE_MAX)
 		return -1;
 
-	g_mca_strategy[type].func = func;
-	g_mca_strategy[type].get_func = get_func;
-	g_mca_strategy[type].set_func = set_func;
-	g_mca_strategy[type].data = data;
+	g_mca_stg_func[type].func = func;
+	g_mca_stg_func[type].get_func = get_func;
+	g_mca_stg_func[type].set_func = set_func;
+	g_mca_stg_func[type].data = data;
 
 	return 0;
 }
@@ -64,33 +64,33 @@ EXPORT_SYMBOL(mca_strategy_ops_register);
 int mca_strategy_func_process(enum mca_strategy_func_type type, int func,
 			      int value)
 {
-	if (type >= STRATEGY_FUNC_TYPE_MAX || !g_mca_strategy[type].func)
+	if (type >= STRATEGY_FUNC_TYPE_MAX || !g_mca_stg_func[type].func)
 		return -1;
 
-	return g_mca_strategy[type].func(func, value,
-					 g_mca_strategy[type].data);
+	return g_mca_stg_func[type].func(func, value,
+					 g_mca_stg_func[type].data);
 }
 EXPORT_SYMBOL(mca_strategy_func_process);
 
 int mca_strategy_func_get_status(enum mca_strategy_func_type type, int func,
 				 int *status)
 {
-	if (type >= STRATEGY_FUNC_TYPE_MAX || !g_mca_strategy[type].get_func)
+	if (type >= STRATEGY_FUNC_TYPE_MAX || !g_mca_stg_func[type].get_func)
 		return -1;
 
-	return g_mca_strategy[type].get_func(func, status,
-					     g_mca_strategy[type].data);
+	return g_mca_stg_func[type].get_func(func, status,
+					     g_mca_stg_func[type].data);
 }
 EXPORT_SYMBOL(mca_strategy_func_get_status);
 
 int mca_strategy_func_set_config(enum mca_strategy_func_type type, int conifg,
 				 int value)
 {
-	if (type >= STRATEGY_FUNC_TYPE_MAX || !g_mca_strategy[type].set_func)
+	if (type >= STRATEGY_FUNC_TYPE_MAX || !g_mca_stg_func[type].set_func)
 		return -1;
 
-	return g_mca_strategy[type].set_func(conifg, value,
-					     g_mca_strategy[type].data);
+	return g_mca_stg_func[type].set_func(conifg, value,
+					     g_mca_stg_func[type].data);
 }
 EXPORT_SYMBOL(mca_strategy_func_set_config);
 

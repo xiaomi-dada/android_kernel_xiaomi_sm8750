@@ -24,7 +24,7 @@ struct platform_class_buckchg_data {
 	const struct platform_class_buckchg_ops	*ops;
 };
 
-static struct platform_class_buckchg_data g_buckchg_data[MAX_BUCK_CHARGER];
+static struct platform_class_buckchg_data platform_buckchg_ops_data[MAX_BUCK_CHARGER];
 
 int platform_class_buckchg_ops_register(enum platform_class_buckchg_role role,
 					const struct platform_class_buckchg_ops *ops,
@@ -33,8 +33,8 @@ int platform_class_buckchg_ops_register(enum platform_class_buckchg_role role,
 	if (role >= MAX_BUCK_CHARGER || !ops)
 		return -1;
 
-	g_buckchg_data[role].ops = ops;
-	g_buckchg_data[role].data = data;
+	platform_buckchg_ops_data[role].ops = ops;
+	platform_buckchg_ops_data[role].data = data;
 
 	return 0;
 }
@@ -56,10 +56,10 @@ platform_class_buckchg_lookup(enum platform_class_buckchg_role role)
 	if (role >= MAX_BUCK_CHARGER)
 		return NULL;
 
-	if (!g_buckchg_data[role].ops)
+	if (!platform_buckchg_ops_data[role].ops)
 		return NULL;
 
-	return &g_buckchg_data[role];
+	return &platform_buckchg_ops_data[role];
 }
 
 int platform_class_buckchg_ops_adc_enable(

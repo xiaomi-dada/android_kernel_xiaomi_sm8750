@@ -23,7 +23,7 @@ struct fuelguage_info {
 	const struct fuelguage_ic_ops	*ops;
 };
 
-static struct fuelguage_info g_fg_info[FG_IC_MAX];
+static struct fuelguage_info g_fg_ic_ops[FG_IC_MAX];
 
 int platform_fg_ic_ops_register(enum fg_ic_role ic_role, void *data,
 				const struct fuelguage_ic_ops *platform_fg_ops)
@@ -31,8 +31,8 @@ int platform_fg_ic_ops_register(enum fg_ic_role ic_role, void *data,
 	if (ic_role >= FG_IC_MAX || !platform_fg_ops)
 		return -EOPNOTSUPP;
 
-	g_fg_info[ic_role].ops = platform_fg_ops;
-	g_fg_info[ic_role].data = data;
+	g_fg_ic_ops[ic_role].ops = platform_fg_ops;
+	g_fg_ic_ops[ic_role].data = data;
 
 	return 0;
 }
@@ -48,10 +48,10 @@ static struct fuelguage_info *fg_ic_lookup(enum fg_ic_role ic_role)
 	if (ic_role >= FG_IC_MAX)
 		return NULL;
 
-	if (!g_fg_info[ic_role].ops)
+	if (!g_fg_ic_ops[ic_role].ops)
 		return NULL;
 
-	return &g_fg_info[ic_role];
+	return &g_fg_ic_ops[ic_role];
 }
 
 int platform_fg_ops_probe_ok(enum fg_ic_role ic_role, bool *probe_ok)

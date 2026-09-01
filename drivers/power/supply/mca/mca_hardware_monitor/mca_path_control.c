@@ -183,7 +183,7 @@ struct mca_path_control {
 	struct path_control_condition_cfg control_path[PATH_CONTROL_PATH_MAX];
 };
 
-static struct mca_path_control *g_path_control;
+static struct mca_path_control *g_info;
 
 /* Which of the gate descriptions is for one gate. */
 static struct path_control_scheme_cfg *
@@ -208,7 +208,7 @@ static int mac_path_control_gpio_scheme_func(int role, bool enable)
 	struct path_control_scheme_cfg *cfg;
 	int val;
 
-	cfg = mca_path_control_find_scheme(g_path_control, role);
+	cfg = mca_path_control_find_scheme(g_info, role);
 	if (!cfg)
 		return 0;
 
@@ -238,7 +238,7 @@ static int mac_path_control_cp_chip_scheme_func(int role, bool enable)
 {
 	struct path_control_scheme_cfg *cfg;
 
-	cfg = mca_path_control_find_scheme(g_path_control, role);
+	cfg = mca_path_control_find_scheme(g_info, role);
 	if (!cfg)
 		return 0;
 
@@ -347,7 +347,7 @@ static noinline int mca_path_control_handle_func(struct mca_path_control *chip,
  */
 int mca_path_control_enable_gate(CONTROL_SRC src, bool enable)
 {
-	struct mca_path_control *chip = g_path_control;
+	struct mca_path_control *chip = g_info;
 
 	if (!chip)
 		return -1;
@@ -841,7 +841,7 @@ static int mca_path_control_probe(struct platform_device *pdev)
 	}
 
 	chip->dev = &pdev->dev;
-	g_path_control = chip;
+	g_info = chip;
 	platform_set_drvdata(pdev, chip);
 	mutex_init(&chip->enable_handling_lock);
 

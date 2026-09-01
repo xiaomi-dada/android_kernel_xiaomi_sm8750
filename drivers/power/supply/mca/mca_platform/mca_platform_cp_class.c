@@ -48,7 +48,7 @@ struct platform_cp_dev {
 	int		force_fsw;
 };
 
-static struct platform_cp_class_ops_data g_cp_ops_data[CP_ROLE_MAX];
+static struct platform_cp_class_ops_data g_platform_cp_data[CP_ROLE_MAX];
 static struct platform_cp_dev *g_cp_dev;
 
 int platform_class_cp_register_ops(enum platform_class_cp_role role,
@@ -58,8 +58,8 @@ int platform_class_cp_register_ops(enum platform_class_cp_role role,
 	if (role >= CP_ROLE_MAX || !ops)
 		return -1;
 
-	g_cp_ops_data[role].ops = ops;
-	g_cp_ops_data[role].data = data;
+	g_platform_cp_data[role].ops = ops;
+	g_platform_cp_data[role].data = data;
 
 	return 0;
 }
@@ -80,10 +80,10 @@ platform_class_cp_lookup(enum platform_class_cp_role role)
 	if (role >= CP_ROLE_MAX)
 		return NULL;
 
-	if (!g_cp_ops_data[role].ops)
+	if (!g_platform_cp_data[role].ops)
 		return NULL;
 
-	return &g_cp_ops_data[role];
+	return &g_platform_cp_data[role];
 }
 
 int platform_class_cp_device_init(enum platform_class_cp_role role,

@@ -27,7 +27,7 @@ struct adapter_protocol_class_data {
 };
 
 static struct adapter_protocol_class_data
-	g_adapter_protocol[ADAPTER_PROTOCOL_MAX];
+	g_protocol_class_data[ADAPTER_PROTOCOL_MAX];
 
 /**
  * protocol_class_register_ops() - offer a protocol to the stack
@@ -42,8 +42,8 @@ int protocol_class_register_ops(enum adatper_protocol protocol,
 	if (protocol >= ADAPTER_PROTOCOL_MAX || !ops)
 		return -1;
 
-	g_adapter_protocol[protocol].ops = ops;
-	g_adapter_protocol[protocol].data = data;
+	g_protocol_class_data[protocol].ops = ops;
+	g_protocol_class_data[protocol].data = data;
 
 	return 0;
 }
@@ -65,7 +65,7 @@ EXPORT_SYMBOL_GPL(protocol_class_register_ops);
 	int __ret = -1;						\
 									\
 	if ((protocol) < ADAPTER_PROTOCOL_MAX) {			\
-		__p = &g_adapter_protocol[protocol];			\
+		__p = &g_protocol_class_data[protocol];			\
 		if (__p->ops && __p->ops->method)			\
 			__ret = __p->ops->method(__p->data,		\
 						 ##__VA_ARGS__);	\
