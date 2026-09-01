@@ -60,6 +60,23 @@ static int adsp_pd_read_u32(u32 prop, u32 *val)
 	return mca_adsp_glink_read_prop(prop, val, sizeof(*val));
 }
 
+/*
+ * A handful of the firmware's properties are a single byte.  Reading four
+ * bytes into a u32 would copy three more out of the response buffer, which
+ * holds whatever the last message carried, so ask for exactly the byte the
+ * property is -- as the shipped module does.
+ */
+static int adsp_pd_read_bool(u32 prop, bool *val)
+{
+	u8 raw = 0;
+	int rc;
+
+	rc = mca_adsp_glink_read_prop(prop, &raw, sizeof(raw));
+	*val = !!raw;
+
+	return rc;
+}
+
 static int adsp_pd_write_u32(u32 prop, u32 val)
 {
 	return mca_adsp_glink_write_prop(prop, &val, sizeof(val));
@@ -220,13 +237,7 @@ static int adsp_pd_protocol_get_adapter_svid(u32 *adapter_svid, void *data)
 
 static int adsp_pd_protocol_get_has_dp(bool *has_dp, void *data)
 {
-	u32 val = 0;
-	int rc;
-
-	rc = adsp_pd_read_u32(ADSP_PROP_ID_TYPEC_HAS_DP, &val);
-	*has_dp = !!val;
-
-	return rc;
+	return adsp_pd_read_bool(ADSP_PROP_ID_TYPEC_HAS_DP, has_dp);
 }
 
 /**
@@ -461,24 +472,12 @@ static int adsp_pd_protocol_get_pd_verifed(int *pd_verifed, void *data)
 
 static int adsp_pd_protocol_get_cid_status(bool *cid_status, void *data)
 {
-	u32 val = 0;
-	int rc;
-
-	rc = adsp_pd_read_u32(ADSP_PROP_ID_TYPEC_CID_STATUS, &val);
-	*cid_status = !!val;
-
-	return rc;
+	return adsp_pd_read_bool(ADSP_PROP_ID_TYPEC_CID_STATUS, cid_status);
 }
 
 static int adsp_pd_protocol_get_otg_plugin_status(bool *plugin, void *data)
 {
-	u32 val = 0;
-	int rc;
-
-	rc = adsp_pd_read_u32(ADSP_PROP_ID_TYPEC_OTG_PLUGIN_STATUS, &val);
-	*plugin = !!val;
-
-	return rc;
+	return adsp_pd_read_bool(ADSP_PROP_ID_TYPEC_OTG_PLUGIN_STATUS, plugin);
 }
 
 static int adsp_protocol_set_cc_toggle(bool cc_toggle, void *data)
@@ -522,14 +521,7 @@ static int adsp_protocol_get_cc_short_vbus(int *cc_short_vbus, void *data)
 static int adsp_pd_protocol_get_suspend_support_status(bool *supported,
 						       void *data)
 {
-	u32 val = 0;
-	int rc;
-
-	rc = adsp_pd_read_u32(ADSP_PROP_ID_TYPEC_PD_SUSPEND_SUPPORT_STATUS,
-			      &val);
-	*supported = !!val;
-
-	return rc;
+	return adsp_pd_read_bool(ADSP_PROP_ID_TYPEC_PD_SUSPEND_SUPPORT_STATUS, supported);
 }
 
 static int adsp_pd_protocol_get_zimi_cypress_flag(int *flag, void *data)
