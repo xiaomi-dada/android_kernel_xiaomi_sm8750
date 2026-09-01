@@ -45,8 +45,14 @@
 #define CHARGER_PARTITION_LUN_MAX	6
 
 /* How long to wait for storage before looking for the partition again. */
-#define CHARGER_PARTITION_POLL_MS	100
-#define CHARGER_PARTITION_POLL_MAX	100
+/*
+ * Storage comes up well after this driver, so the worker keeps looking for
+ * it: every five seconds, twenty times, which is the hundred seconds the
+ * shipped module allows.  Polling faster but giving up after ten seconds
+ * loses the partition on a cold boot.
+ */
+#define CHARGER_PARTITION_POLL_MS	5000
+#define CHARGER_PARTITION_POLL_MAX	20
 
 /*
  * Which partition holds it depends on the board: the two platforms this
@@ -955,8 +961,8 @@ static int charger_partition_probe(struct platform_device *pdev)
 
 	INIT_DELAYED_WORK(&chip->charger_partition_work,
 			  charger_partition_work);
-	queue_delayed_work(system_wq, &chip->charger_partition_work,
-			   msecs_to_jiffies(CHARGER_PARTITION_POLL_MS));
+	/* First look right away; the retries below are the ones that wait. */
+	queue_delayed_work(system_wq, &chip->charger_partition_work, 0);
 
 	mca_log_err("probe ok\n");
 
