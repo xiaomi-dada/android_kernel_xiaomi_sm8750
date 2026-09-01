@@ -82,6 +82,14 @@ static int adsp_pd_write_u32(u32 prop, u32 val)
 	return mca_adsp_glink_write_prop(prop, &val, sizeof(val));
 }
 
+/* The single-byte properties are written as narrowly as they are read. */
+static int adsp_pd_write_bool(u32 prop, bool val)
+{
+	u8 raw = val;
+
+	return mca_adsp_glink_write_prop(prop, &raw, sizeof(raw));
+}
+
 static int adsp_pd_protocol_get_pps_max_power(u32 *max_power, void *data)
 {
 	/*
@@ -506,18 +514,12 @@ static int adsp_pd_protocol_get_otg_plugin_status(bool *plugin, void *data)
 
 static int adsp_protocol_set_cc_toggle(bool cc_toggle, void *data)
 {
-	return adsp_pd_write_u32(ADSP_PROP_ID_TYPEC_CC_TOGGLE, cc_toggle);
+	return adsp_pd_write_bool(ADSP_PROP_ID_TYPEC_CC_TOGGLE, cc_toggle);
 }
 
 static int adsp_protocol_get_cc_toggle(bool *cc_toggle, void *data)
 {
-	u32 val = 0;
-	int rc;
-
-	rc = adsp_pd_read_u32(ADSP_PROP_ID_TYPEC_CC_TOGGLE, &val);
-	*cc_toggle = !!val;
-
-	return rc;
+	return adsp_pd_read_bool(ADSP_PROP_ID_TYPEC_CC_TOGGLE, cc_toggle);
 }
 
 static int adsp_pd_protocol_get_snk_src_mode(int *snk_src_mode, void *data)
@@ -527,13 +529,7 @@ static int adsp_pd_protocol_get_snk_src_mode(int *snk_src_mode, void *data)
 
 static int adsp_protocol_get_cc_status(bool *cc_status, void *data)
 {
-	u32 val = 0;
-	int rc;
-
-	rc = adsp_pd_read_u32(ADSP_PROP_ID_TYPEC_CC_STATUS, &val);
-	*cc_status = !!val;
-
-	return rc;
+	return adsp_pd_read_bool(ADSP_PROP_ID_TYPEC_CC_STATUS, cc_status);
 }
 
 static int adsp_protocol_get_cc_short_vbus(int *cc_short_vbus, void *data)
