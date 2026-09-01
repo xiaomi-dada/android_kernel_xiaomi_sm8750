@@ -497,4 +497,16 @@ struct strategy_wireless_dev {
 	int use_sc_buck;
 };
 
+
+/*
+ * The two transmitters that are driven at 2:1, and what qualifies them.  The
+ * first is only ever paired with one platform; the second only while its
+ * output is still coming up.
+ */
+#define MCA_WLS_UUID_2_1_ONLY		0x09010A01
+#define MCA_WLS_2_1_PLATFORM		3
+#define MCA_WLS_UUID_2_1_STARTUP	0x0E0E0205
+#define MCA_WLS_2_1_VENDOR		3
+#define MCA_WLS_2_1_SS_VOLT_MAX		6700
+
 #endif /* __MCA_BASIC_WIRELESS_H__ */

@@ -1340,6 +1340,7 @@ static int strategy_wireless_send_vout_range_request(struct strategy_wireless_de
 static __always_inline int strategy_wireless_transparent_success(struct strategy_wireless_dev *info)
 {
 	int ret = 0;
+	struct mca_hwid_info *hwid;
 	info->proc_data.set_tx_voltage_cnt = 0;
 
 	switch (info->proc_data.current_for_tx_cmd) {
@@ -1354,13 +1355,24 @@ static __always_inline int strategy_wireless_transparent_success(struct strategy
 		}
 		break;
 	case TX_CMD_TYPE_VOLTAGE:
-		if (0) {
+		/*
+		 * Two transmitters are driven at 2:1 rather than 4:1: one is
+		 * only ever paired with a single platform, and the other only
+		 * while it is still starting up and has not raised its output.
+		 * Every other pad gets 4:1.
+		 */
+		hwid = mca_get_hwid_info();
+		if (hwid && hwid->platform_version == MCA_WLS_2_1_PLATFORM &&
+		    info->proc_data.uuid_value == MCA_WLS_UUID_2_1_ONLY) {
 			info->proc_data.is_2_1_mode = true;
-			info->proc_data.is_4_1_mode = false;
+		} else if (info->proc_data.uuid_value == MCA_WLS_UUID_2_1_STARTUP &&
+			   info->project_vendor == MCA_WLS_2_1_VENDOR &&
+			   info->proc_data.ss_voltage < MCA_WLS_2_1_SS_VOLT_MAX) {
+			info->proc_data.is_2_1_mode = true;
 		} else {
 			info->proc_data.is_2_1_mode = false;
-			info->proc_data.is_4_1_mode = true;
 		}
+		info->proc_data.is_4_1_mode = !info->proc_data.is_2_1_mode;
 		info->proc_data.pre_fastchg = true;
 		ret = strategy_wireless_adapter_handle(info);
 		schedule_delayed_work(&info->update_wireless_thermal_work, msecs_to_jiffies(0));
