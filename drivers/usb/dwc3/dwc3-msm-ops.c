@@ -324,6 +324,30 @@ static int exit_dwc3_host_exit(struct kretprobe_instance *ri,
 	return 0;
 }
 
+/*
+ * The core leaves the controller idle after a disconnect but never says so,
+ * and dwc3_gadget_disconnect_interrupt() is static, so a return probe is the
+ * only place to notice.  Without it the controller stays runtime-resumed
+ * after the cable is pulled until something else happens to poke it.
+ */
+static int entry_dwc3_gadget_disconnect_interrupt(struct kretprobe_instance *ri,
+				struct pt_regs *regs)
+{
+	union kprobe_data *data = (union kprobe_data *)ri->data;
+
+	data->dwc = (struct dwc3 *)regs->regs[0];
+	return 0;
+}
+
+static int exit_dwc3_gadget_disconnect_interrupt(struct kretprobe_instance *ri,
+				struct pt_regs *regs)
+{
+	union kprobe_data *data = (union kprobe_data *)ri->data;
+
+	pm_runtime_idle(data->dwc->dev);
+	return 0;
+}
+
 #define ENTRY_EXIT(name) {\
 	.handler = exit_##name,\
 	.entry_handler = entry_##name,\
@@ -345,6 +369,7 @@ static struct kretprobe dwc3_msm_probes[] = {
 	ENTRY(dwc3_gadget_reset_interrupt),
 	ENTRY(__dwc3_gadget_ep_enable),
 	ENTRY_EXIT(dwc3_host_exit),
+	ENTRY_EXIT(dwc3_gadget_disconnect_interrupt),
 	ENTRY_EXIT(dwc3_gadget_pullup),
 	ENTRY_EXIT(android_work),
 	ENTRY_EXIT(usb_ep_set_maxpacket_limit),
