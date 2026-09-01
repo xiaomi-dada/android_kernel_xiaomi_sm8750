@@ -492,7 +492,10 @@ static int fg_mac_write_block(struct bq_fg_chip *bq, u16 cmd, u8 *data, u8 len)
 
 	mutex_lock(&bq->data_lock);
 	/*write command/addr, data*/
-	mutex_lock(&bq->i2c_rw_lock);
+	if (fg_i2c_lock(bq)) {
+		mutex_unlock(&bq->data_lock);
+		return -1;
+	}
 	ret = __fg_write_block(bq->client, bq->regs[BQ_FG_REG_ALT_MAC], t_buf, len + 2);
 	if (ret < 0) {
 		mca_log_err("wirte block failed %d %d\n", t_buf[0], t_buf[1]);
@@ -4487,8 +4490,11 @@ static int nfg1000_write(struct bq_fg_chip *bq, u8 reg, u8 *buf,
 {
 	int ret;
 
-	if (fg_i2c_lock(bq))
-		return -1;
+	/*
+	 * Waits rather than giving up: this is the update, and it is the one
+	 * caller that must not bail out on the flag it set itself.
+	 */
+	mutex_lock(&bq->i2c_rw_lock);
 
 	ret = __fg_write_block(bq->client, reg, buf, len);
 	mutex_unlock(&bq->i2c_rw_lock);
@@ -4987,6 +4993,13 @@ static int nfg1000_update_APP(struct bq_fg_chip *bq)
 {
 	u8 cmd[4];
 
+	/*
+	 * Reflashing holds the bus for a long time.  Saying so lets every
+	 * ordinary read and write fail fast instead of blocking on the mutex
+	 * until the update finishes.
+	 */
+	bq->ota_updating = true;
+
 	cmd[0] = 0x00; cmd[1] = 0x0f;
 	nfg1000_write(bq, 0x00, cmd, 2);
 	cmd[0] = 0x34; cmd[1] = 0x12;
@@ -5004,25 +5017,30 @@ static int nfg1000_update_APP(struct bq_fg_chip *bq)
 		mca_log_err("update_APP: enter boot fail\n");
 
 	if (nfg1000_ota_program_step2_ShaAuth(bq) < 0)
-		return -1;
+		goto out;
 
 	if (nfg1000_mcu_auth_ok(bq) < 0) {
 		mca_log_err("nfg1000 ota program step3 fail\n");
-		return -1;
+		goto out;
 	}
 
 	if (nfg1000_ota_program_step4_gauge_version(bq) < 0)
-		return -1;
+		goto out;
 
 	if (nfg1000_ota_program_step5_update_gauge(bq) < 0)
-		return -1;
+		goto out;
 	if (nfg1000_ota_program_step6_CheckCrc(bq) < 0)
-		return -1;
+		goto out;
 	if (nfg1000_ota_program_step7_ExitBoot(bq) < 0)
-		return -1;
+		goto out;
 
 	msleep(1500);
+	bq->ota_updating = false;
 	return 0;
+
+out:
+	bq->ota_updating = false;
+	return -1;
 }
 
 /*
