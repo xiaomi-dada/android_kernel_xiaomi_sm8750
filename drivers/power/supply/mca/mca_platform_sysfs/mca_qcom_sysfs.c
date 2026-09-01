@@ -629,12 +629,17 @@ static ssize_t wls_thermal_remove_store(const struct class *c,
 				const struct class_attribute *attr,
 					const char *buf, size_t count)
 {
-	bool val;
+	int val;
+	int ret;
 
-	if (kstrtobool(buf, &val))
+	/* An integer, as the shipped driver takes: any non-zero value is on. */
+	if (kstrtoint(buf, 10, &val))
 		return -EINVAL;
 
-	mca_set_wls_charger_thermal_remove(val);
+	ret = mca_set_wls_charger_thermal_remove(val != 0);
+	mca_log_err("store wls_thermal_remove = %d\n", val);
+	if (ret < 0)
+		return ret;
 
 	return count;
 }
