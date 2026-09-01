@@ -33,6 +33,9 @@
 #define PATH_CONTROL_ROLE_MAX		5
 #define PATH_CONTROL_PATH_MAX		16
 
+/* How long to leave the providers to register before the first poll. */
+#define PATH_CONTROL_FIRST_POLL_MS	10000
+
 /* How many boost cases one combination may distinguish, and gates each names. */
 #define PATH_CONTROL_BOOST_MAX		5
 #define PATH_CONTROL_GATE_MAX		5
@@ -415,7 +418,12 @@ static void mca_path_control_update_status_work(struct work_struct *work)
 	 * running states is the other; what matters here is only whether the
 	 * phone is supplying something through the connector.
 	 */
-	if (chip->otg_boost_enable_sts - 1 < 2)
+	/*
+	 * Only "enabling" and "enabled" mean the boost is sourcing.  Written as
+	 * a subtraction this has to be unsigned: otg_boost_enable_sts is signed
+	 * and idles at zero, which would otherwise satisfy the range.
+	 */
+	if (chip->otg_boost_enable_sts == 1 || chip->otg_boost_enable_sts == 2)
 		condition |= PATH_CONTROL_OTG;
 	if (chip->wireless_vdd_en)
 		condition |= PATH_CONTROL_VDD;
@@ -851,7 +859,14 @@ static int mca_path_control_probe(struct platform_device *pdev)
 
 	INIT_DELAYED_WORK(&chip->update_status_work,
 			  mca_path_control_update_status_work);
-	queue_delayed_work(system_wq, &chip->update_status_work, 0);
+	/*
+	 * Ten seconds, not straight away: the first poll asks the buck charger,
+	 * the wireless class and the reverse-charging strategy for their state,
+	 * and latches the answer.  At probe those providers have not all
+	 * registered yet.
+	 */
+	queue_delayed_work(system_wq, &chip->update_status_work,
+			   msecs_to_jiffies(PATH_CONTROL_FIRST_POLL_MS));
 
 	mca_sysfs_init_attrs(path_control_attrs, path_control_sysfs_field_tbl,
 			     ARRAY_SIZE(path_control_sysfs_field_tbl));
