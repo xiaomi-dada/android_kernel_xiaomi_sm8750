@@ -3194,6 +3194,8 @@ static void strategy_wireless_switch_to_half_bridge(struct strategy_wireless_dev
 
 /* The charge current a receiver is held to once it drops to the 2:1 pump mode. */
 #define WLS_CP_2_1_MODE_FCC_MA	6000
+#define WLS_CP_4_1_MODE_FCC_MA	13000
+#define WLS_CP_MODE_CHANGE_MS	60000
 
 /*
  * Moving the pump down to 2:1 halves what it can pass, so the current it is
@@ -3244,6 +3246,33 @@ static void strategy_wireless_monitor_work(struct work_struct *work)
 	strategy_wireless_switch_to_half_bridge(info, if_qc_enable);
 	(void)mca_strategy_func_get_status(STRATEGY_FUNC_TYPE_QUICK_WIRELESS,
 				STRATEGY_STATUS_TYPE_CHARGING, &quick_charge_status);
+
+	/*
+	 * The adapter that starts up in 2:1 runs at the full current in 4:1
+	 * for the first minute and then moves down; change_cp_mode_work does
+	 * the move.  Anything that stops the fast charge puts the current
+	 * back and cancels it, so the move never happens against an adapter
+	 * that is no longer charging.
+	 */
+	if (info->proc_data.uuid_value == MCA_WLS_UUID_2_1_STARTUP &&
+	    info->project_vendor == MCA_WLS_2_1_VENDOR) {
+		if (quick_charge_status == MCA_QUICK_CHG_STS_CHARGING &&
+		    info->proc_data.is_4_1_mode) {
+			strategy_wireless_fcc_setting(info, true,
+						      WLS_CP_4_1_MODE_FCC_MA);
+			info->proc_data.wireless_power.max_fcc =
+				WLS_CP_4_1_MODE_FCC_MA;
+			schedule_delayed_work(&info->change_cp_mode_work,
+				msecs_to_jiffies(WLS_CP_MODE_CHANGE_MS));
+		} else {
+			cancel_delayed_work(&info->change_cp_mode_work);
+			strategy_wireless_fcc_setting(info, true,
+						      WLS_CP_2_1_MODE_FCC_MA);
+			info->proc_data.wireless_power.max_fcc =
+				WLS_CP_2_1_MODE_FCC_MA;
+		}
+	}
+
 	if (quick_charge_status == MCA_QUICK_CHG_STS_CHARGING)
 		goto out;
 
