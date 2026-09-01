@@ -9,10 +9,13 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/proc_fs.h>
+#include <linux/seq_file.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
 #include <linux/usb/dwc3-msm.h>
 #include <linux/usb/repeater.h>
+#include <linux/uaccess.h>
 
 #define EUSB2_3P0_VOL_MIN			3075000 /* uV */
 #define EUSB2_3P0_VOL_MAX			3300000 /* uV */
@@ -116,8 +119,17 @@ struct eusb2_repeater {
 
 	u32			*param_override_seq;
 	u32			*host_param_override_seq;
+	u32			*host_ms_param_override_seq;
 	u8			param_override_seq_cnt;
 	u8			host_param_override_seq_cnt;
+	u8			host_ms_param_override_seq_cnt;
+
+	bool			ms_supported;
+	bool			ms_requested;
+	bool			ms_in_use;
+	struct proc_dir_entry	*proc_msflag;
+	struct proc_dir_entry	*proc_ms_use;
+	struct proc_dir_entry	*proc_en_msflag;
 };
 
 /* Perform one or more register read */
@@ -224,6 +236,127 @@ static void eusb2_repeater_create_debugfs(struct eusb2_repeater *er)
 	debugfs_create_x8("eusb_equ", 0644, er->root, &er->eusb_equ);
 	debugfs_create_x8("eusb_hs_comp_current", 0644, er->root,
 					&er->eusb_hs_comp_current);
+}
+
+/*
+ * The repeater carries a second host-mode tuning on boards that need one, and
+ * the USB HAL decides which to use.  It reads /proc/enable_msflag to find out
+ * whether this board has the alternative sequence at all, writes
+ * /proc/usb_msflag to ask for it, and reads /proc/usb_ms_use to see what the
+ * last init actually applied.  The names and the one-character answers are the
+ * interface Xiaomi's HAL was built against.
+ */
+static int eusb2_proc_msflag_show(struct seq_file *s, void *unused)
+{
+	struct eusb2_repeater *er = s->private;
+
+	seq_printf(s, "%d\n", er->ms_requested);
+
+	return 0;
+}
+
+static int eusb2_proc_msflag_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, eusb2_proc_msflag_show, pde_data(inode));
+}
+
+static ssize_t eusb2_proc_msflag_write(struct file *file,
+				       const char __user *buf, size_t count,
+				       loff_t *ppos)
+{
+	struct eusb2_repeater *er = pde_data(file_inode(file));
+	char kbuf[8];
+	bool val;
+
+	if (count == 0 || count >= sizeof(kbuf))
+		return -EINVAL;
+
+	if (copy_from_user(kbuf, buf, count))
+		return -EFAULT;
+
+	kbuf[count] = '\0';
+	if (kstrtobool(kbuf, &val))
+		return -EINVAL;
+
+	er->ms_requested = val;
+	dev_dbg(er->ur.dev, "msflag is:%d\n", er->ms_requested);
+
+	return count;
+}
+
+static const struct proc_ops eusb2_proc_msflag_ops = {
+	.proc_open	= eusb2_proc_msflag_open,
+	.proc_read	= seq_read,
+	.proc_write	= eusb2_proc_msflag_write,
+	.proc_lseek	= seq_lseek,
+	.proc_release	= single_release,
+};
+
+static int eusb2_proc_ms_use_show(struct seq_file *s, void *unused)
+{
+	struct eusb2_repeater *er = s->private;
+
+	seq_printf(s, "%d\n", er->ms_in_use);
+
+	return 0;
+}
+
+static int eusb2_proc_ms_use_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, eusb2_proc_ms_use_show, pde_data(inode));
+}
+
+static const struct proc_ops eusb2_proc_ms_use_ops = {
+	.proc_open	= eusb2_proc_ms_use_open,
+	.proc_read	= seq_read,
+	.proc_lseek	= seq_lseek,
+	.proc_release	= single_release,
+};
+
+static int eusb2_proc_en_msflag_show(struct seq_file *s, void *unused)
+{
+	struct eusb2_repeater *er = s->private;
+
+	seq_printf(s, "%d\n", er->ms_supported);
+
+	return 0;
+}
+
+static int eusb2_proc_en_msflag_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, eusb2_proc_en_msflag_show, pde_data(inode));
+}
+
+static const struct proc_ops eusb2_proc_en_msflag_ops = {
+	.proc_open	= eusb2_proc_en_msflag_open,
+	.proc_read	= seq_read,
+	.proc_lseek	= seq_lseek,
+	.proc_release	= single_release,
+};
+
+static void eusb2_repeater_remove_procfs(struct eusb2_repeater *er)
+{
+	proc_remove(er->proc_en_msflag);
+	proc_remove(er->proc_ms_use);
+	proc_remove(er->proc_msflag);
+	er->proc_en_msflag = NULL;
+	er->proc_ms_use = NULL;
+	er->proc_msflag = NULL;
+}
+
+static void eusb2_repeater_create_procfs(struct eusb2_repeater *er)
+{
+	er->proc_msflag = proc_create_data("usb_msflag", 0644, NULL,
+					   &eusb2_proc_msflag_ops, er);
+	er->proc_ms_use = proc_create_data("usb_ms_use", 0644, NULL,
+					   &eusb2_proc_ms_use_ops, er);
+	er->proc_en_msflag = proc_create_data("enable_msflag", 0644, NULL,
+					      &eusb2_proc_en_msflag_ops, er);
+
+	if (!er->proc_msflag || !er->proc_ms_use || !er->proc_en_msflag) {
+		dev_err(er->ur.dev, "proc entries not created\n");
+		eusb2_repeater_remove_procfs(er);
+	}
 }
 
 static int eusb2_repeater_power(struct eusb2_repeater *er, bool on)
@@ -339,9 +472,25 @@ static int eusb2_repeater_init(struct usb_repeater *ur)
 	eusb2_repeater_update_seq(er, er->param_override_seq,
 			er->param_override_seq_cnt);
 
-	if (ur->flags & PHY_HOST_MODE)
-		eusb2_repeater_update_seq(er, er->host_param_override_seq,
-				er->host_param_override_seq_cnt);
+	if (ur->flags & PHY_HOST_MODE) {
+		/*
+		 * Host mode has a second tuning the board may carry, for
+		 * accessories the default sequence does not drive cleanly.
+		 * Userspace asks for it through /proc/usb_msflag; without the
+		 * board's sequence there is nothing to switch to.
+		 */
+		if (er->ms_requested && er->host_ms_param_override_seq_cnt) {
+			eusb2_repeater_update_seq(er,
+					er->host_ms_param_override_seq,
+					er->host_ms_param_override_seq_cnt);
+			er->ms_in_use = true;
+		} else {
+			eusb2_repeater_update_seq(er,
+					er->host_param_override_seq,
+					er->host_param_override_seq_cnt);
+			er->ms_in_use = false;
+		}
+	}
 
 	/* override tune params using debugfs based values */
 	if (er->usb2_crossover <= 0x7)
@@ -533,6 +682,15 @@ static int eusb2_repeater_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto err_probe;
 
+	ret = eusb2_repeater_read_overrides(dev,
+			"qcom,param-override-seq-host-ms",
+			&er->host_ms_param_override_seq,
+			&er->host_ms_param_override_seq_cnt);
+	if (ret < 0)
+		goto err_probe;
+
+	er->ms_supported = er->host_ms_param_override_seq_cnt != 0;
+
 	er->ur.dev = dev;
 	platform_set_drvdata(pdev, er);
 
@@ -547,6 +705,7 @@ static int eusb2_repeater_probe(struct platform_device *pdev)
 		goto err_probe;
 
 	eusb2_repeater_create_debugfs(er);
+	eusb2_repeater_create_procfs(er);
 	return 0;
 
 err_probe:
@@ -560,6 +719,7 @@ static int eusb2_repeater_remove(struct platform_device *pdev)
 	if (!er)
 		return 0;
 
+	eusb2_repeater_remove_procfs(er);
 	debugfs_remove_recursive(er->root);
 	usb_remove_repeater_dev(&er->ur);
 	eusb2_repeater_power(er, false);
