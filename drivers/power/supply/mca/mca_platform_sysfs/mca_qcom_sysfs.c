@@ -215,13 +215,16 @@ static ssize_t pd_verifed_store(const struct class *c,
 				const struct class_attribute *attr,
 				const char *buf, size_t count)
 {
+	int ret;
 	int val;
 
 	if (kstrtoint(buf, 0, &val))
 		return -EINVAL;
 
 	mca_log_info("store pd_verifed = %d\n", val);
-	protocol_class_set_adapter_verified(ADAPTER_PROTOCOL_PD, val);
+	ret = protocol_class_set_adapter_verified(ADAPTER_PROTOCOL_PD, val);
+	if (ret < 0)
+		return ret;
 
 	return count;
 }
@@ -391,12 +394,15 @@ static ssize_t shipmode_count_reset_store(const struct class *c,
 				const struct class_attribute *attr,
 					  const char *buf, size_t count)
 {
+	int ret;
 	int val;
 
 	if (kstrtoint(buf, 0, &val))
 		return -EINVAL;
 
-	platform_class_buckchg_ops_set_ship_mode(MAIN_BUCK_CHARGER, !!val);
+	ret = platform_class_buckchg_ops_set_ship_mode(MAIN_BUCK_CHARGER, !!val);
+	if (ret < 0)
+		return ret;
 
 	return count;
 }
@@ -421,12 +427,15 @@ static ssize_t dam_ovpgate_store(const struct class *c,
 				const struct class_attribute *attr,
 				 const char *buf, size_t count)
 {
+	int ret;
 	bool val;
 
 	if (kstrtobool(buf, &val))
 		return -EINVAL;
 
-	platform_class_cp_enable_ovpgate(CP_ROLE_MASTER, val);
+	ret = platform_class_cp_enable_ovpgate(CP_ROLE_MASTER, val);
+	if (ret < 0)
+		return ret;
 
 	return count;
 }
@@ -527,13 +536,16 @@ static ssize_t hall_phone_case_store(const struct class *c,
 				const struct class_attribute *attr,
 				     const char *buf, size_t count)
 {
+	int ret;
 	int val;
 
 	if (kstrtoint(buf, 0, &val))
 		return -EINVAL;
 
-	platform_class_wireless_set_phone_case_category(WIRELESS_ROLE_MASTER,
+	ret = platform_class_wireless_set_phone_case_category(WIRELESS_ROLE_MASTER,
 							val);
+	if (ret < 0)
+		return ret;
 
 	return count;
 }
@@ -554,12 +566,15 @@ static ssize_t wireless_chip_fw_store(const struct class *c,
 				const struct class_attribute *attr,
 				      const char *buf, size_t count)
 {
+	int ret;
 	int val;
 
 	if (kstrtoint(buf, 0, &val))
 		return -EINVAL;
 
-	mca_wireless_rev_update_fw_version(val);
+	ret = mca_wireless_rev_update_fw_version(val);
+	if (ret < 0)
+		return ret;
 
 	return count;
 }
@@ -579,6 +594,7 @@ static ssize_t reverse_chg_mode_store(const struct class *c,
 				const struct class_attribute *attr,
 				      const char *buf, size_t count)
 {
+	int ret;
 	int val = 0;
 	int rc;
 
@@ -591,7 +607,7 @@ static ssize_t reverse_chg_mode_store(const struct class *c,
 	 * power when it is too cold or too empty, and has to know to start
 	 * again when it is not.
 	 */
-	mca_wireless_rev_enable_reverse_charge(!!val);
+	ret = mca_wireless_rev_enable_reverse_charge(!!val);
 	mca_log_err("zxy store reverse_chg_mode = %d\n", val);
 	rc = mca_wireless_rev_set_user_reverse_chg(!!val);
 
