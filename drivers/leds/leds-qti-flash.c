@@ -130,6 +130,8 @@ struct flash_node_data {
 	u32				current_ma;
 	u32				max_current;
 	u8				duration;
+	/* The longest strobe this board allows, in milliseconds. */
+	u32				max_duration_ms;
 	u8				id;
 	u8				updated_ires_idx;
 	u8				ires_idx;
@@ -1658,6 +1660,17 @@ static int register_flash_device(struct qti_flash_led *led,
 			val <= SAFETY_TIMER_MAX_TIMEOUT_MS))
 		duration = val;
 
+	/*
+	 * How long the board allows the flash to stay lit, which is not the
+	 * same as how long the hardware could.  It is advertised to userspace
+	 * as the maximum of the timeout setting, so nothing can ask for longer.
+	 */
+	fnode->max_duration_ms = SAFETY_TIMER_MAX_TIMEOUT_MS;
+	rc = of_property_read_u32(node, "xiaomi,max-duration-ms", &val);
+	if (!rc && (val >= SAFETY_TIMER_MIN_TIMEOUT_MS &&
+			val <= SAFETY_TIMER_MAX_TIMEOUT_MS))
+		fnode->max_duration_ms = val;
+
 	rc = timeout_to_code(duration);
 	if (rc < 0) {
 		pr_err("Incorrect timeout configured %u\n", duration);
@@ -1703,7 +1716,7 @@ static int register_flash_device(struct qti_flash_led *led,
 
 	setting = &fnode->fdev.timeout;
 	setting->min = 0;
-	setting->max = SAFETY_TIMER_MAX_TIMEOUT_MS * 1000;
+	setting->max = fnode->max_duration_ms * 1000;
 	setting->step = SAFETY_TIMER_STEP_SIZE * 1000;
 	setting->val = SAFETY_TIMER_DEFAULT_TIMEOUT_MS * 1000;
 
