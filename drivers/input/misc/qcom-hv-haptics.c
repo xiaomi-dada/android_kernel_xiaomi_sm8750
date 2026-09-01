@@ -738,6 +738,8 @@ struct haptics_play_info {
 struct haptics_hw_config {
 	struct brake_cfg	brake;
 	u32			vmax_mv;
+	/* What to drive the motor at while measuring its resonance. */
+	u32			f0_vmax_mv;
 	u32			t_lra_us;
 	u32			cl_t_lra_us;
 	u32			lra_min_mohms;
@@ -1378,13 +1380,39 @@ static int haptics_get_closeloop_lra_period(
 		return -EINVAL;
 	}
 
-	if ((abs(config->t_lra_us - config->cl_t_lra_us) * 100 / config->t_lra_us) >
-			CL_TLRA_ERROR_RANGE_PCT) {
-		dev_warn(chip->dev, "The calibrated period (%d us) has large variation, use open-loop LRA period (%d us) instead\n",
-				config->cl_t_lra_us, config->t_lra_us);
-		config->cl_t_lra_us = config->t_lra_us;
-		chip->config.rc_clk_cal_count = 0;
+	/*
+	 * The bootloader's measurement is trusted only if it lands inside the
+	 * range this board's motor can actually resonate in; outside it, the
+	 * board's own default is used instead.  This replaces the generic
+	 * "large variation" check, which compared against the open-loop period
+	 * rather than against anything the hardware guarantees.
+	 */
+	if (in_boot) {
+		struct device_node *node = chip->dev->of_node;
+		u32 f0_min, f0_max, f0_default, f0_cal_count;
+		u32 boot_f0;
+
+		if (!config->cl_t_lra_us)
+			goto skip_f0_check;
+
+		boot_f0 = USEC_PER_SEC / config->cl_t_lra_us;
+
+		if (of_property_read_u32(node, "qcom,lra-f0-min", &f0_min) ||
+		    of_property_read_u32(node, "qcom,lra-f0-max", &f0_max) ||
+		    of_property_read_u32(node, "qcom,lra-f0-default", &f0_default) ||
+		    of_property_read_u32(node, "qcom,lra-f0-cal-count", &f0_cal_count)) {
+			dev_dbg(chip->dev, "lra-f0: min, max, default and cal-count must be set together\n");
+			goto skip_f0_check;
+		}
+
+		if (boot_f0 < f0_min || boot_f0 > f0_max) {
+			dev_warn(chip->dev, "boot f0 %d Hz outside %d-%d Hz, using default %d Hz\n",
+				 boot_f0, f0_min, f0_max, f0_default);
+			config->cl_t_lra_us = USEC_PER_SEC / f0_default;
+			config->rc_clk_cal_count = f0_cal_count;
+		}
 	}
+skip_f0_check:
 
 	dev_dbg(chip->dev, "OL_TLRA %u us, CL_TLRA %u us, RC_CLK_CAL_COUNT %#x\n",
 		chip->config.t_lra_us, chip->config.cl_t_lra_us,
@@ -3864,11 +3892,12 @@ static int haptics_init_preload_pattern_effect(struct haptics_chip *chip)
 	return haptics_set_pattern(chip, effect->pattern, effect->src);
 }
 
+static int haptics_detect_lra_frequency(struct haptics_chip *chip);
+
 static int haptics_init_lra_period_config(struct haptics_chip *chip)
 {
 	int rc = 0;
 	u8 val;
-	u32 t_lra_us;
 
 	/* set AUTO_mode RC CLK calibration by default */
 	val = FIELD_PREP(CAL_RC_CLK_MASK, CAL_RC_CLK_AUTO_VAL);
@@ -3877,16 +3906,15 @@ static int haptics_init_lra_period_config(struct haptics_chip *chip)
 	if (rc < 0)
 		return rc;
 
-	/* get calibrated close loop period */
-	t_lra_us = chip->config.t_lra_us;
-	rc = haptics_get_closeloop_lra_period(chip, true);
-	if (!rc && chip->config.cl_t_lra_us != 0)
-		t_lra_us = chip->config.cl_t_lra_us;
-	else
-		dev_warn(chip->dev, "get closeloop LRA period failed, rc=%d\n", rc);
+	/*
+	 * Measure the motor's resonance now rather than taking the period the
+	 * bootloader left behind: a motor driven off resonance is both weaker
+	 * and noisier, and the measurement is what the shipped driver does.
+	 * It configures T_LRA itself.
+	 */
+	dev_dbg(chip->dev, "measuring LRA resonance at boot\n");
 
-	/* Config T_LRA */
-	return haptics_config_openloop_lra_period(chip, t_lra_us);
+	return haptics_detect_lra_frequency(chip);
 }
 
 static int haptics_init_hpwr_config(struct haptics_chip *chip)
@@ -4850,6 +4878,8 @@ static int haptics_parse_dt(struct haptics_chip *chip)
 	}
 
 	config->vmax_mv = DEFAULT_VMAX_MV;
+	config->f0_vmax_mv = DEFAULT_VMAX_MV;
+	of_property_read_u32(node, "qcom,f0-vmax-mv", &config->f0_vmax_mv);
 	of_property_read_u32(node, "qcom,vmax-mv", &config->vmax_mv);
 	if (config->vmax_mv >= MAX_VMAX_MV) {
 		dev_err(chip->dev, "qcom,vmax-mv (%d) exceed the max value: %d\n",
@@ -5531,7 +5561,7 @@ static int haptics_detect_lra_frequency(struct haptics_chip *chip)
 {
 	int rc;
 	u8 autores_cfg, drv_duty_cfg, amplitude, mask, val = 0;
-	u32 vmax_mv = chip->config.vmax_mv;
+	u32 vmax_mv = chip->config.f0_vmax_mv;
 
 	rc = haptics_read(chip, chip->cfg_addr_base,
 			HAP_CFG_AUTORES_CFG_REG, &autores_cfg, 1);
