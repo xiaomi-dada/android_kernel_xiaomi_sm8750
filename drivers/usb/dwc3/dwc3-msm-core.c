@@ -6843,7 +6843,8 @@ static int dwc3_msm_host_ss_powerdown(struct dwc3_msm *mdwc)
 	 * Conditions for allowing dynamic powerdown of the SS PHY:
 	 *   1. The feature is not disabled by the DT property
 	 *   2. Not currently in a DP active state
-	 *   3. Connected device's speed is not super-speed
+	 *   3. The controller's maximum speed is super-speed or better --
+	 *      below that there is no SS PHY in use to power down
 	 */
 	if (mdwc->disable_host_ssphy_powerdown || mdwc->dp_state ||
 		dwc3_msm_get_max_speed(mdwc) < USB_SPEED_SUPER)
