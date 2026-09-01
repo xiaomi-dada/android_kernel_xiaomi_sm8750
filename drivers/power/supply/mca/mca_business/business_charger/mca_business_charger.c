@@ -564,28 +564,21 @@ static noinline void business_charger_process_usb_sns_func(struct business_charg
 {
 	int usb_present = *((int *)data);
 	bool fw_update;
-	int otg_boost_enable = 0, otg_gate_enable = 0;
 
 	if (charger->usb_sns_type != BUSINESS_CHARGER_SNS_TYPE_PMIC_SNS)
 		return;
 
-	platform_class_buckchg_ops_get_otg_boost_enable_status(MAIN_BUCK_CHARGER, &otg_boost_enable);
-	platform_class_buckchg_ops_get_otg_gate_enable_status(MAIN_BUCK_CHARGER, &otg_gate_enable);
 	mca_wireless_rev_get_fw_update(&fw_update);
-	mca_log_err("usb_resent: %d, otg_boost_enable: %d, otg_gate_enable: %d, fw_update: %d\n",
-		usb_present, otg_boost_enable, otg_gate_enable, fw_update);
+	mca_log_err("usb_resent: %d, fw_update: %d\n", usb_present, fw_update);
 
-	if (!otg_gate_enable || !otg_boost_enable)
-		mca_strategy_func_process(STRATEGY_FUNC_TYPE_REV_WIRELESS, event, usb_present);
+	mca_strategy_func_process(STRATEGY_FUNC_TYPE_REV_WIRELESS, event, usb_present);
 
-	if (usb_present && (!otg_gate_enable || !otg_boost_enable)) {
+	if (usb_present)
 		platform_class_wireless_set_enable_mode(WIRELESS_ROLE_MASTER, false);
-		mca_wireless_rev_set_usb_plugin(true);
-	} else if (!usb_present) {
-		if (!fw_update)
-			schedule_delayed_work(&charger->delay_enable_rx_work, msecs_to_jiffies(1500));
-		mca_wireless_rev_set_usb_plugin(false);
-	}
+	else if (!fw_update)
+		schedule_delayed_work(&charger->delay_enable_rx_work, msecs_to_jiffies(1500));
+
+	mca_wireless_rev_set_usb_plugin(usb_present != 0);
 }
 
 static void business_charger_process_online_change(struct business_charger *charger,
