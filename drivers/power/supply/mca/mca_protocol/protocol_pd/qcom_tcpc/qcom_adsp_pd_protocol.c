@@ -201,10 +201,41 @@ static int adsp_pd_protocol_get_has_dp(bool *has_dp, void *data)
  *
  * Return: 0, or a negative error.
  */
+/*
+ * The three authentication messages carry their payload big-endian on the
+ * wire.  The ADSP forwards what it is handed without touching it, so the four
+ * payload words have to be swapped here; the shipped module does the same.
+ * Only the request direction is swapped -- the adapter's answer comes back in
+ * the order the caller expects.
+ */
+#define ADSP_VDM_AUTH_WORDS	4
+
+static int adsp_pd_protocol_swap_vdm_payload(u32 *data_out, u32 size)
+{
+	int i;
+
+	/*
+	 * The shipped module instead lets SESSION_SEED through with a property
+	 * id of zero when the payload is short, which asks the ADSP for a
+	 * property that does not exist.  Refuse it here.
+	 */
+	if (size < ADSP_VDM_AUTH_WORDS)
+		return -EINVAL;
+
+	for (i = 0; i < ADSP_VDM_AUTH_WORDS; i++)
+		data_out[i] = cpu_to_be32(data_out[i]);
+
+	return 0;
+}
+
 static int adsp_pd_protocol_request_vdm_cmd(enum uvdm_state cmd, u32 *data_out,
 					    u32 size, void *data)
 {
 	u32 prop;
+	int ret;
+
+	if (!data_out)
+		return -EINVAL;
 
 	switch (cmd) {
 	case USBPD_UVDM_CHARGER_VERSION:
@@ -218,9 +249,15 @@ static int adsp_pd_protocol_request_vdm_cmd(enum uvdm_state cmd, u32 *data_out,
 		break;
 	case USBPD_UVDM_SESSION_SEED:
 		prop = ADSP_PROP_ID_TYPEC_VDM_CMD_SESSION_SEED;
+		ret = adsp_pd_protocol_swap_vdm_payload(data_out, size);
+		if (ret)
+			return ret;
 		break;
 	case USBPD_UVDM_AUTHENTICATION:
 		prop = ADSP_PROP_ID_TYPEC_VDM_CMD_AUTHENTICATION;
+		ret = adsp_pd_protocol_swap_vdm_payload(data_out, size);
+		if (ret)
+			return ret;
 		break;
 	case USBPD_UVDM_VERIFIED:
 		prop = ADSP_PROP_ID_TYPEC_VDM_CMD_VERIFIED;
@@ -230,6 +267,9 @@ static int adsp_pd_protocol_request_vdm_cmd(enum uvdm_state cmd, u32 *data_out,
 		break;
 	case USBPD_UVDM_REVERSE_AUTHEN:
 		prop = ADSP_PROP_ID_TYPEC_VDM_CMD_REVERSE_AUTHEN;
+		ret = adsp_pd_protocol_swap_vdm_payload(data_out, size);
+		if (ret)
+			return ret;
 		break;
 	case USBPD_UVDM_NAN_ACK:
 		prop = ADSP_PROP_ID_TYPEC_VDM_CMD_RESET_VSAFE0V;
