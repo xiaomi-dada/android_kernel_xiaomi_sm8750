@@ -46,16 +46,20 @@
 #include <linux/pm_wakeup.h>
 #include <linux/workqueue.h>
 
-/* The registers this driver uses. */
+/*
+ * The registers this driver uses, per inc/sc8581_reg.h -- which is the
+ * vendor's own description of the part and is the authority here.  Note that
+ * the bus over-voltage and output over-voltage thresholds share register 05h.
+ */
 #define SC8581_REG_BAT_OVP		0x01
-#define SC8581_REG_BAT_OVP_ALM		0x02
-#define SC8581_REG_WPC_OVP		0x03
-#define SC8581_REG_OUT_OVP		0x04
-#define SC8581_REG_BUS_OCP		0x05
-#define SC8581_REG_BUS_OVP		0x06
+#define SC8581_REG_BAT_OCP		0x02
+#define SC8581_REG_USB_OVP		0x03
+#define SC8581_REG_WPC_OVP		0x04
+#define SC8581_REG_BUS_OVP		0x05
+#define SC8581_REG_BUS_OCP		0x06
 #define SC8581_REG_BUS_UCP		0x07
-#define SC8581_REG_USB_OVP		0x08
-#define SC8581_REG_PMID2OUT		0x09
+#define SC8581_REG_PMID2OUT_OVP		0x08
+#define SC8581_REG_PMID2OUT_UVP		0x09
 #define SC8581_REG_ERROR_HL		0x0a
 #define SC8581_REG_CTRL			0x0b
 #define SC8581_REG_FSW			0x0c
@@ -65,6 +69,7 @@
 #define SC8581_REG_INT_STAT		0x10
 #define  SC8581_VUSB_PRESENT		BIT(0)
 #define SC8581_REG_INT_FLAG		0x11
+#define SC8581_REG_FLT_FLAG		0x13
 #define SC8581_REG_ADC_CTRL		0x15
 #define SC8581_REG_ADC_EN		0x16
 #define SC8581_REG_ADC_BASE		0x17
@@ -90,7 +95,7 @@
 #define SC8581_BAT_OVP_STEP_MV		25
 #define SC8581_BAT_OVP_MASK		GENMASK(4, 0)
 
-#define SC8581_PMID2OUT_UVP_BASE_MV	100
+#define SC8581_PMID2OUT_UVP_BASE_MV	50
 #define SC8581_PMID2OUT_UVP_STEP_MV	50
 #define SC8581_PMID2OUT_UVP_MASK	GENMASK(2, 0)
 
@@ -115,14 +120,21 @@
  * The input thresholds count from the bottom of each register's range in
  * its own step; the bus one counts from whatever that division's floor is.
  */
-#define SC8581_BUS_OVP_STEP_MV		150
-#define SC8581_BUS_OVP_MASK		GENMASK(4, 0)
-#define SC8581_USB_OVP_BASE_MV		2100
-#define SC8581_USB_OVP_STEP_MV		400
-#define SC8581_USB_OVP_MASK		GENMASK(2, 0)
+#define SC8581_BUS_OVP_MASK		GENMASK(7, 2)
+#define SC8581_BUS_OVP_SHIFT		2
+#define SC8581_OUT_OVP_BASE_MV		4800
+#define SC8581_OUT_OVP_STEP_MV		200
+#define SC8581_OUT_OVP_MASK		GENMASK(1, 0)
+#define SC8581_USB_OVP_BASE_MV		11000
+#define SC8581_USB_OVP_STEP_MV		1000
+#define SC8581_USB_OVP_MASK		GENMASK(3, 0)
 #define SC8581_BUS_OCP_BASE_MA		2500
-#define SC8581_BUS_OCP_STEP_MA		250
+#define SC8581_BUS_OCP_STEP_MA		125
 #define SC8581_BUS_OCP_MASK		GENMASK(4, 0)
+
+/* The SC8585 counts its input current from a lower floor, in coarser steps. */
+#define SC8581_BUS_OCP_SC8585_BASE_MA	2100
+#define SC8581_BUS_OCP_SC8585_STEP_MA	150
 
 /* The switching frequency, and what the register counts it in. */
 #define SC8581_FSW_MIN_KHZ		300
@@ -690,10 +702,10 @@ static int sc8581_set_operation_mode(struct sc8581_device *chip, int mode)
 	/* Disable each protection while its own threshold is moving. */
 	sc8581_init_bit(chip, SC8581_REG_BAT_OVP, BIT(7), false);
 	if (chip->cp_role != CP_ROLE_SLAVE)
-		sc8581_init_bit(chip, SC8581_REG_BAT_OVP_ALM, BIT(7), true);
-	sc8581_init_bit(chip, SC8581_REG_BUS_OVP, BIT(7), false);
-	sc8581_init_bit(chip, SC8581_REG_USB_OVP, BIT(7), false);
-	sc8581_init_bit(chip, SC8581_REG_PMID2OUT, BIT(7), false);
+		sc8581_init_bit(chip, SC8581_REG_BAT_OCP, BIT(7), true);
+	sc8581_init_bit(chip, SC8581_REG_BUS_OCP, BIT(7), false);
+	sc8581_init_bit(chip, SC8581_REG_PMID2OUT_OVP, BIT(7), false);
+	sc8581_init_bit(chip, SC8581_REG_PMID2OUT_UVP, BIT(7), false);
 	sc8581_init_bit(chip, SC8581_REG_BAT_OVP2, BIT(7), false);
 	sc8581_init_bit(chip, SC8581_REG_BAT_OVP2_ALM, BIT(7), false);
 
@@ -704,7 +716,7 @@ static int sc8581_set_operation_mode(struct sc8581_device *chip, int mode)
 					    SC8581_BAT_OVP_MASK));
 
 	if (chip->cp_role != CP_ROLE_SLAVE)
-		cp_update_bits(chip, SC8581_REG_BAT_OVP_ALM, GENMASK(3, 0), 4);
+		cp_update_bits(chip, SC8581_REG_BAT_OCP, GENMASK(3, 0), 4);
 
 	cp_update_bits(chip, SC8581_REG_BAT_OVP2, SC8581_BAT_OVP_MASK,
 		       sc8581_threshold_val(chip->cfg.bat_ovp_alarm_th,
@@ -731,9 +743,11 @@ static int sc8581_set_operation_mode(struct sc8581_device *chip, int mode)
 					    SC8581_WPC_OVP_STEP_MV,
 					    SC8581_WPC_OVP_MASK));
 
-	cp_update_bits(chip, SC8581_REG_OUT_OVP, GENMASK(3, 0),
-		       sc8581_threshold_val(chip->cfg.out_ovp_th, 4800, 100,
-					    GENMASK(3, 0)));
+	cp_update_bits(chip, SC8581_REG_BUS_OVP, SC8581_OUT_OVP_MASK,
+		       sc8581_threshold_val(chip->cfg.out_ovp_th,
+					    SC8581_OUT_OVP_BASE_MV,
+					    SC8581_OUT_OVP_STEP_MV,
+					    SC8581_OUT_OVP_MASK));
 
 	sc8581_set_pmid2outuvp_th(chip->cfg.pmid2out_uvp_th, chip);
 
@@ -915,7 +929,7 @@ static int sc8581_set_pmid2outuvp_th(int th, void *data)
 	 * cannot leave the flying capacitor unguarded.
 	 */
 	sc8581_set_key(chip, true);
-	cp_update_bits(chip, SC8581_REG_PMID2OUT, SC8581_PMID2OUT_UVP_MASK,
+	cp_update_bits(chip, SC8581_REG_PMID2OUT_UVP, SC8581_PMID2OUT_UVP_MASK,
 		       val);
 
 	return sc8581_set_key(chip, false);
@@ -1103,24 +1117,34 @@ static int ops_cp_get_bypass_support(bool *support, void *data)
  * the board's figure is clamped rather than truncated.
  */
 static const int sc8581_bus_ovp_min_mv[SC8581_MODE_COUNT] = {
-	13300, 5500, 3500,
+	14000, 7000, 3500,
 };
 static const int sc8581_bus_ovp_max_mv[SC8581_MODE_COUNT] = {
-	22000, 14000, 7000,
+	22000, 13300, 5500,
 };
 
 /* The SC8585 takes a little more on its input than its siblings do. */
 static const int sc8581_bus_ovp_min_sc8585_mv[SC8581_MODE_COUNT] = {
-	13300, 5500, 3750,
+	15000, 7500, 3750,
 };
 static const int sc8581_bus_ovp_max_sc8585_mv[SC8581_MODE_COUNT] = {
-	22000, 15000, 7500,
+	22000, 13300, 5500,
+};
+
+/*
+ * The register counts from each division's floor, and in a different step for
+ * each: the wider the input range the division has to cover, the coarser the
+ * step the part gives it.
+ */
+static const int sc8581_bus_ovp_step_mv[SC8581_MODE_COUNT] = {
+	200, 100, 50,
 };
 
 
 static int sc8581_set_busovp_th(struct sc8581_device *chip, int mode)
 {
 	const int *min_mv, *max_mv;
+	bool sc8585;
 	int th;
 	int rc;
 
@@ -1145,10 +1169,11 @@ static int sc8581_set_busovp_th(struct sc8581_device *chip, int mode)
 		return rc;
 
 	mca_log_info("bus_ovpth= %d, val = %d\n", th,
-		     (th - min_mv[mode]) / SC8581_BUS_OVP_STEP_MV);
+		     (th - min_mv[mode]) / sc8581_bus_ovp_step_mv[mode]);
 
 	rc = cp_update_bits(chip, SC8581_REG_BUS_OVP, SC8581_BUS_OVP_MASK,
-			    (th - min_mv[mode]) / SC8581_BUS_OVP_STEP_MV);
+			    (th - min_mv[mode]) / sc8581_bus_ovp_step_mv[mode]
+			    << SC8581_BUS_OVP_SHIFT);
 	if (rc)
 		return rc;
 
@@ -1160,10 +1185,14 @@ static int sc8581_set_busovp_th(struct sc8581_device *chip, int mode)
 	if (rc)
 		return rc;
 
+	sc8585 = chip->chip_vendor == SC8585_VENDOR;
+
 	return cp_update_bits(chip, SC8581_REG_BUS_OCP, SC8581_BUS_OCP_MASK,
 			      sc8581_threshold_val(chip->cfg.bus_ocp_th[mode],
-						   SC8581_BUS_OCP_BASE_MA,
-						   SC8581_BUS_OCP_STEP_MA,
+						   sc8585 ? SC8581_BUS_OCP_SC8585_BASE_MA
+							  : SC8581_BUS_OCP_BASE_MA,
+						   sc8585 ? SC8581_BUS_OCP_SC8585_STEP_MA
+							  : SC8581_BUS_OCP_STEP_MA,
 						   SC8581_BUS_OCP_MASK));
 }
 
@@ -1241,7 +1270,7 @@ static int sc8581_init_device(struct sc8581_device *chip)
 		cp_update_bits(chip, SC8581_REG_FSW, GENMASK(1, 0),
 			       GENMASK(1, 0));
 
-		sc8581_init_bit(chip, SC8581_REG_WPC_OVP, BIT(7), false);
+		sc8581_init_bit(chip, SC8581_REG_USB_OVP, BIT(7), false);
 
 		/* Start the ADC from a known state, then enable channels. */
 		sc8581_init_bit(chip, SC8581_REG_ADC_CTRL, BIT(6), false);
@@ -1347,19 +1376,17 @@ static const struct {
 	int	event;
 	const char *name;
 } sc8581_faults[] = {
-	{ SC8581_REG_INT_FLAG, BIT(0), MCA_EVENT_CP_VBAT_OVP,     "VBAT_OVP" },
-	{ SC8581_REG_INT_FLAG, BIT(1), MCA_EVENT_CP_IBAT_OCP,     "IBAT_OCP" },
-	{ SC8581_REG_INT_FLAG, BIT(2), MCA_EVENT_CP_VBUS_OVP,     "VBUS_OVP" },
-	{ SC8581_REG_INT_FLAG, BIT(3), MCA_EVENT_CP_IBUS_OCP,     "IBUS_OCP" },
-	{ SC8581_REG_INT_FLAG, BIT(4), MCA_EVENT_CP_IBUS_UCP,     "IBUS_UCP" },
-	{ SC8581_REG_INT_FLAG, BIT(5), MCA_EVENT_CP_PMID2OUT_OVP, "PMID2OUT_OVP" },
-	{ SC8581_REG_INT_FLAG, BIT(6), MCA_EVENT_CP_PMID2OUT_UVP, "PMID2OUT_UVP" },
-	{ SC8581_REG_INT_FLAG, BIT(7), MCA_EVENT_CP_TSHUT_FLAG,   "TSHUT" },
-	{ SC8581_REG_ERROR_HL, BIT(0), MCA_EVENT_CP_VUSB_OVP,     "VUSB_OVP" },
-	{ SC8581_REG_ERROR_HL, BIT(1), MCA_EVENT_CP_VWPC_OVP,     "VWPC_OVP" },
-	{ SC8581_REG_ERROR_HL, BIT(2), MCA_EVENT_CP_VOUT_UVLO,    "VOUT UVLO" },
-	{ SC8581_REG_ERROR_HL, BIT(3), MCA_EVENT_CP_POR_FLAG,     "POR_FLAG" },
-	{ SC8581_REG_ERROR_HL, BIT(4), MCA_EVENT_CP_CBOOT_FAIL,   "CBOOT SHORT/OPEN 111" },
+	{ SC8581_REG_BAT_OVP,      BIT(5), MCA_EVENT_CP_VBAT_OVP,     "VBAT_OVP" },
+	{ SC8581_REG_BAT_OCP,      BIT(4), MCA_EVENT_CP_IBAT_OCP,     "IBAT_OCP" },
+	{ SC8581_REG_USB_OVP,      BIT(5), MCA_EVENT_CP_VUSB_OVP,     "VUSB_OVP" },
+	{ SC8581_REG_WPC_OVP,      BIT(5), MCA_EVENT_CP_VWPC_OVP,     "VWPC_OVP" },
+	{ SC8581_REG_BUS_OCP,      BIT(5), MCA_EVENT_CP_IBUS_OCP,     "IBUS_OCP" },
+	{ SC8581_REG_BUS_UCP,      BIT(0), MCA_EVENT_CP_IBUS_UCP,     "IBUS_UCP" },
+	{ SC8581_REG_PMID2OUT_OVP, BIT(3), MCA_EVENT_CP_PMID2OUT_OVP, "PMID2OUT_OVP" },
+	{ SC8581_REG_PMID2OUT_UVP, BIT(3), MCA_EVENT_CP_PMID2OUT_UVP, "PMID2OUT_UVP" },
+	{ SC8581_REG_FLT_FLAG,     BIT(1), MCA_EVENT_CP_VBUS_OVP,     "VBUS_OVP" },
+	{ SC8581_REG_FLT_FLAG,     BIT(6), MCA_EVENT_CP_TSHUT_FLAG,   "TSHUT" },
+	{ SC8581_REG_ERROR_HL,     BIT(7), MCA_EVENT_CP_POR_FLAG,     "POR_FLAG" },
 };
 
 /**
@@ -1371,7 +1398,7 @@ static const struct {
  */
 static int sc8581_dump_important_regs(struct sc8581_device *chip)
 {
-	u8 vals[SC8581_REG_INT_FLAG + 1] = { };
+	u8 vals[SC8581_REG_FLT_FLAG + 1] = { };
 	unsigned int i;
 	int rc;
 
