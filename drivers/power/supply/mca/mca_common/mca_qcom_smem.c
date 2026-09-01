@@ -35,7 +35,8 @@
  */
 static void *mca_smem_battery(void)
 {
-	size_t size;
+	size_t size = 0;
+	void *item;
 	int ret;
 
 	ret = qcom_smem_alloc(QCOM_SMEM_HOST_ANY, MCA_SMEM_BATTERY_ITEM,
@@ -45,7 +46,22 @@ static void *mca_smem_battery(void)
 		return ERR_PTR(ret);
 	}
 
-	return qcom_smem_get(QCOM_SMEM_HOST_ANY, MCA_SMEM_BATTERY_ITEM, &size);
+	item = qcom_smem_get(QCOM_SMEM_HOST_ANY, MCA_SMEM_BATTERY_ITEM, &size);
+	if (IS_ERR_OR_NULL(item))
+		return item;
+
+	/*
+	 * -EEXIST above means someone else allocated the item, and nothing
+	 * says they asked for as much room as the fields below are read at.
+	 * The shipped module reads them regardless; check first.
+	 */
+	if (size < MCA_SMEM_BATTERY_SIZE) {
+		mca_log_err("shared state entry is %zu bytes, expected %d\n",
+			    size, MCA_SMEM_BATTERY_SIZE);
+		return ERR_PTR(-EINVAL);
+	}
+
+	return item;
 }
 
 int get_smem_battery_info(u32 *mode)
