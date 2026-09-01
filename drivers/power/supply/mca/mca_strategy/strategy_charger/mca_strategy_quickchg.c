@@ -80,9 +80,11 @@ static int mca_quick_charge_msleep(int ms, struct mca_quick_charge_info *info)
 	for (i = 0; i < count; i++) {
 		(void)mca_strategy_func_get_status(STRATEGY_FUNC_TYPE_BUCK_CHARGE,
 			STRATEGY_STATUS_TYPE_ONLINE, &buck_online);
-		if (!info->online || info->force_stop || info->proc_data.type_chg || !buck_online) {
-			mca_log_err("sleep fast return, online: %d, force_stop: %d, type_chg: %d, buck_online: %d\n",
-				info->online, info->force_stop, info->proc_data.type_chg, buck_online);
+		if (!info->online || info->force_stop || info->proc_data.type_chg || !buck_online ||
+			!info->sysfs_data.chg_enable) {
+			mca_log_err("sleep fast return, online: %d, force_stop: %d, type_chg: %d, buck_online: %d, sysfs_chg_enable %d\n",
+				info->online, info->force_stop, info->proc_data.type_chg, buck_online,
+				info->sysfs_data.chg_enable);
 			return -1;
 		}
 		usleep_range(9900, 11000);
