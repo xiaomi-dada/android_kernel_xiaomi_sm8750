@@ -819,7 +819,12 @@ static noinline int check_charger_partition_header(void)
 	int ret = -EINVAL;
 	void *buf;
 
-	buf = kmalloc(CHARGER_PARTITION_BLOCK_SIZE, GFP_KERNEL);
+	/*
+	 * Zeroed, because the whole block is written back below: anything the
+	 * read did not cover would otherwise go to the partition as whatever
+	 * the heap last held.
+	 */
+	buf = kzalloc(CHARGER_PARTITION_BLOCK_SIZE, GFP_KERNEL);
 	if (!buf) {
 		mca_log_err("out of memory\n");
 		return -ENOMEM;
