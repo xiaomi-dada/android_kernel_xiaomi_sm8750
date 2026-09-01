@@ -19,7 +19,7 @@
  * come.
  */
 
-#define MCA_LOG_TAG "adsp_pd_protocol"
+#define MCA_LOG_TAG "qcom_adsp_pd"
 
 #include <linux/device.h>
 #include <linux/errno.h>

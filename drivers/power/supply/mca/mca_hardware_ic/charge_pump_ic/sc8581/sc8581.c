@@ -26,7 +26,7 @@
  * which is why the wireless and reverse-charging paths reach into it.
  */
 
-#define MCA_LOG_TAG "sc8581"
+#define MCA_LOG_TAG "cp_sc8581"
 
 #include <linux/delay.h>
 #include <linux/device.h>

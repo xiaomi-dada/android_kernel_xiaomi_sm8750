@@ -5,7 +5,7 @@
  * Charge pumps.  See include/mca/common/mca_platform_cp.h.
  */
 
-#define MCA_LOG_TAG "platform_cp_class"
+#define MCA_LOG_TAG "cp_class"
 
 #include <linux/device.h>
 #include <linux/errno.h>

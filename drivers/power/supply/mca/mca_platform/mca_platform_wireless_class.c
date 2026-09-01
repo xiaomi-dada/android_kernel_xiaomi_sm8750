@@ -6,7 +6,7 @@
  * include/mca/common/mca_platform_wireless.h.
  */
 
-#define MCA_LOG_TAG "platform_wireless_class"
+#define MCA_LOG_TAG "wireless_class"
 
 #include <linux/errno.h>
 #include <linux/kstrtox.h>
