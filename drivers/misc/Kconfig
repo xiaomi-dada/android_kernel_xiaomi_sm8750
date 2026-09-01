@@ -605,6 +605,7 @@ source "drivers/misc/uacce/Kconfig"
 source "drivers/misc/pvpanic/Kconfig"
 source "drivers/misc/mchp_pci1xxxx/Kconfig"
 source "drivers/misc/hwid/Kconfig"
+source "drivers/misc/wifi_gpio/Kconfig"
 
 config IR_SPI_XIAOMI
 	tristate "Xiaomi consumer IR emitter over SPI"
