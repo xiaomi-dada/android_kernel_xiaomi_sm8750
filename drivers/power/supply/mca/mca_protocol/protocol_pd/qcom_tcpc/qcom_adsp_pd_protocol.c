@@ -263,7 +263,8 @@ static int adsp_pd_protocol_get_has_dp(bool *has_dp, void *data)
  */
 #define ADSP_VDM_AUTH_WORDS	4
 
-static int adsp_pd_protocol_swap_vdm_payload(u32 *data_out, u32 size)
+static int adsp_pd_protocol_swap_vdm_payload(const char *what, u32 *data_out,
+					     u32 size)
 {
 	int i;
 
@@ -277,6 +278,10 @@ static int adsp_pd_protocol_swap_vdm_payload(u32 *data_out, u32 size)
 
 	for (i = 0; i < ADSP_VDM_AUTH_WORDS; i++)
 		data_out[i] = cpu_to_be32(data_out[i]);
+
+	/* What actually goes to the adapter, which is the thing worth seeing. */
+	mca_log_info("%s:data = 0x%x 0x%x 0x%x 0x%x\n", what, data_out[0],
+		     data_out[1], data_out[2], data_out[3]);
 
 	return 0;
 }
@@ -302,13 +307,15 @@ static int adsp_pd_protocol_request_vdm_cmd(enum uvdm_state cmd, u32 *data_out,
 		break;
 	case USBPD_UVDM_SESSION_SEED:
 		prop = ADSP_PROP_ID_TYPEC_VDM_CMD_SESSION_SEED;
-		ret = adsp_pd_protocol_swap_vdm_payload(data_out, size);
+		ret = adsp_pd_protocol_swap_vdm_payload("SESSION_SEED", data_out,
+							size);
 		if (ret)
 			return ret;
 		break;
 	case USBPD_UVDM_AUTHENTICATION:
 		prop = ADSP_PROP_ID_TYPEC_VDM_CMD_AUTHENTICATION;
-		ret = adsp_pd_protocol_swap_vdm_payload(data_out, size);
+		ret = adsp_pd_protocol_swap_vdm_payload("AUTHENTICATION", data_out,
+							size);
 		if (ret)
 			return ret;
 		break;
@@ -320,7 +327,8 @@ static int adsp_pd_protocol_request_vdm_cmd(enum uvdm_state cmd, u32 *data_out,
 		break;
 	case USBPD_UVDM_REVERSE_AUTHEN:
 		prop = ADSP_PROP_ID_TYPEC_VDM_CMD_REVERSE_AUTHEN;
-		ret = adsp_pd_protocol_swap_vdm_payload(data_out, size);
+		ret = adsp_pd_protocol_swap_vdm_payload("REVERSE_AUTHEN", data_out,
+							size);
 		if (ret)
 			return ret;
 		break;
