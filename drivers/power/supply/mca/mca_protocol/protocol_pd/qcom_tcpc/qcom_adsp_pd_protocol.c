@@ -167,7 +167,33 @@ static int adsp_pd_protocol_get_pps_apdo_max(u32 *apdo_max, void *data)
 
 static int adsp_pd_protocol_get_pd_type(int *pd_type, void *data)
 {
-	return adsp_pd_read_u32(ADSP_PROP_ID_USB_USB_REAL_TYPE, pd_type);
+	struct adsp_protocol_pd_data *chip = data;
+	u32 real_type = 0;
+	int rc;
+
+	if (!chip)
+		return -EINVAL;
+
+	rc = adsp_pd_read_u32(ADSP_PROP_ID_USB_USB_REAL_TYPE, &real_type);
+	if (rc)
+		return rc;
+
+	/*
+	 * PPS is the only type the firmware reports here that the charging
+	 * strategies can act on, and once the adapter has been authenticated
+	 * it becomes PD_VERIFY -- which is what selects Xiaomi's own charging
+	 * profile rather than plain PPS.  Anything else is reported as
+	 * unknown, as the shipped module does; passing the firmware's value
+	 * straight through would hand the strategies a type they read as a
+	 * different charger entirely.
+	 */
+	if (real_type == XM_CHARGER_TYPE_PPS)
+		*pd_type = chip->pd_verifed ? XM_CHARGER_TYPE_PD_VERIFY
+					    : XM_CHARGER_TYPE_PPS;
+	else
+		*pd_type = XM_CHARGER_TYPE_UNKNOW;
+
+	return 0;
 }
 
 static int adsp_pd_protocol_get_typec_mode(int *typec_mode, void *data)
