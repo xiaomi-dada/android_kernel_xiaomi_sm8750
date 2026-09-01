@@ -57,8 +57,22 @@ static struct mca_qcom_sysfs *g_qcom_sysfs;
  * derived from the protocol enums.
  */
 static const char * const usb_real_type_text[] = {
-	"Unknown", "USB_FLOAT", "SDP", "CDP", "DCP", "HVDCP", "HVDCP_3",
-	"HVDCP_3_B", "HVDCP_3P5", "USB_PD", "PD_PPS", "ACA",
+	[XM_CHARGER_TYPE_UNKNOW]	= "Unknown",
+	[XM_CHARGER_TYPE_SDP]		= "SDP",
+	[XM_CHARGER_TYPE_CDP]		= "CDP",
+	[XM_CHARGER_TYPE_DCP]		= "DCP",
+	[XM_CHARGER_TYPE_FLOAT]		= "USB_FLOAT",
+	[XM_CHARGER_TYPE_HVDCP2]	= "HVDCP",
+	[XM_CHARGER_TYPE_HVDCP3]	= "HVDCP_3",
+	[XM_CHARGER_TYPE_HVDCP3_B]	= "HVDCP_3_B",
+	[XM_CHARGER_TYPE_HVDCP3P5]	= "HVDCP_3P5",
+	[XM_CHARGER_TYPE_TYPEC]		= "C",
+	[XM_CHARGER_TYPE_PD]		= "PD",
+	[XM_CHARGER_TYPE_PPS]		= "PD_PPS",
+	[XM_CHARGER_TYPE_PD_VERIFY]	= "PD_PPS",
+	[XM_CHARGER_TYPE_SRC_UFP]	= "Unknown",
+	[XM_CHARGER_TYPE_ACA]		= "ACA",
+	[XM_CHARGER_TYPE_OCP]		= "DCP",
 };
 
 /* The same for a wireless pad. */
@@ -72,9 +86,9 @@ static ssize_t real_type_show(const struct class *c,
 {
 	u32 type = 0;
 
-	protocol_class_get_adapter_type(ADAPTER_PROTOCOL_PD, &type);
+	protocol_class_get_adapter_type(ADAPTER_PROTOCOL_BC12, &type);
 	if (type >= ARRAY_SIZE(usb_real_type_text))
-		type = 0;
+		type = XM_CHARGER_TYPE_UNKNOW;
 
 	return scnprintf(buf, PAGE_SIZE, "%s\n", usb_real_type_text[type]);
 }
