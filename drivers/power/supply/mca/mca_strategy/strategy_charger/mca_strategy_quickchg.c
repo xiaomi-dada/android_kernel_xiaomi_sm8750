@@ -3609,6 +3609,15 @@ static void mca_quick_charge_clear_pmic_temp_term(struct mca_quick_charge_info *
 	mca_vote_override(info->buck_input_voter, "pmic_temp_term", false, 0);
 }
 
+/*
+ * The shipped driver open-codes this sequence at each of its four call sites
+ * and only holds data_lock for the one in MCA_EVENT_CHARGE_CAP_CHANGE; the
+ * three voter and sysfs paths run it bare.  Those can be entered from a vote
+ * while an event is part-way through mca_quick_charge_start_charging(), which
+ * leaves the two racing over the charge pumps, so take the lock in all four.
+ * monitor_work does not touch data_lock, so holding it across the cancel is
+ * safe.
+ */
 static void mca_quick_charge_force_stop_charging(struct mca_quick_charge_info *info)
 {
 	mutex_lock(&info->data_lock);
