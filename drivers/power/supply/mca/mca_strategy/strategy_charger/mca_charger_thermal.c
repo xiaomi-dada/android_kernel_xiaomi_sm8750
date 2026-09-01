@@ -737,7 +737,13 @@ static int mca_charger_thermal_get_max_level(struct thermal_cooling_device *cdev
 	if (!chip)
 		return -1;
 
-	*state = chip->wired_ctrl_info.limit_level;
+	/*
+	 * One more than the highest level handle_limit() accepts.  The shipped
+	 * driver advertises it this way and the thermal HAL is calibrated
+	 * against that, so the count is kept even though the top level it
+	 * implies is one the driver itself rejects.
+	 */
+	*state = chip->wired_ctrl_info.limit_level + 1;
 
 	return 0;
 }
