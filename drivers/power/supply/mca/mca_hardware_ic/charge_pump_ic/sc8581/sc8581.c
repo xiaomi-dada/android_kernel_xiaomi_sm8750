@@ -1457,23 +1457,24 @@ static int sc8581_dump_important_regs(struct sc8581_device *chip)
 	if (vals[SC8581_REG_ERROR_HL] & SC8581_CP_SWITCHING_STAT)
 		return 0;
 
-	mca_log_info("cp switching stop, enter abnormal charging judge\n");
+	mca_log_info("%s cp switching stop, enter abnormal charging judge\n",
+		     chip->log_tag);
 
 	if (!(vals[SC8581_REG_INT_STAT] & SC8581_VOUT_INSERT_STAT)) {
-		mca_log_info("VOUT UVLO\n");
+		mca_log_info("%s VOUT UVLO\n", chip->log_tag);
 		mca_event_block_notify(MCA_EVENT_TYPE_CP_INFO,
 				       MCA_EVENT_CP_VOUT_UVLO, NULL);
 	}
 
 	if ((vals[SC8581_REG_INT_STAT] & SC8581_ALL_PRESENT_STAT) !=
 	    SC8581_ALL_PRESENT_STAT)
-		mca_log_info("VIN have problem\n");
+		mca_log_info("%s VIN have problem\n", chip->log_tag);
 
 	if (vals[SC8581_REG_ERROR_HL] & SC8581_VBUS_ERRORHI_STAT)
-		mca_log_info("VBUS_ERRORHI_STAT\n");
+		mca_log_info("%s VBUS_ERRORHI_STAT\n", chip->log_tag);
 
 	if (vals[SC8581_REG_ERROR_HL] & SC8581_VBUS_ERRORLO_STAT)
-		mca_log_info("VBUS_ERRORLO_STAT\n");
+		mca_log_info("%s VBUS_ERRORLO_STAT\n", chip->log_tag);
 
 	/*
 	 * The pin diagnostic latches either way round, and both edges matter:
@@ -1481,7 +1482,8 @@ static int sc8581_dump_important_regs(struct sc8581_device *chip)
 	 * has come back.  Report each change once rather than every dump.
 	 */
 	cboot_short = !!(vals[SC8581_REG_ERROR_HL] & SC8581_PIN_DIAG_FALL_FLAG);
-	mca_log_info("CBOOT SHORT/OPEN %s\n", cboot_short ? "111" : "000");
+	mca_log_info("%s CBOOT SHORT/OPEN %s\n", chip->log_tag,
+		     cboot_short ? "111" : "000");
 	if (cboot_short != chip->cboot_short) {
 		chip->cboot_short = cboot_short;
 		mca_event_block_notify(MCA_EVENT_TYPE_CP_INFO,
