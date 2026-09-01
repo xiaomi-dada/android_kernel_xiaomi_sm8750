@@ -1594,6 +1594,7 @@ static int wcd_usbss_init_optional_reset_pins(struct wcd_usbss_ctxt *priv)
 /* called from switch_update_lock mutex locked */
 static int wcd_usbss_sdam_handle_events_locked(int req_state)
 {
+	unsigned int sbu_pldn;
 	struct wcd_usbss_ctxt *priv = wcd_usbss_ctxt_;
 	int rc = 0;
 
@@ -1607,11 +1608,15 @@ static int wcd_usbss_sdam_handle_events_locked(int req_state)
 		regmap_update_bits(priv->regmap, WCD_USBSS_DP_BIAS, 0x01, 0x01);
 		regmap_update_bits(priv->regmap, WCD_USBSS_DN_BIAS, 0x01, 0x01);
 
-		if (!wcd_usbss_ctxt_->usb_sbu_compliance) {
-			/* Enable SBU1/2 2K PLDN */
-			regmap_update_bits(priv->regmap, WCD_USBSS_MG1_BIAS, 0x01, 0x01);
-			regmap_update_bits(priv->regmap, WCD_USBSS_MG2_BIAS, 0x01, 0x01);
-		}
+		/*
+		 * Enable SBU1/2 2K PLDN -- or take them off the line, which is
+		 * what SBU compliance wants.  Written either way rather than
+		 * skipped, so they do not survive from whatever the previous
+		 * mode left behind.
+		 */
+		sbu_pldn = wcd_usbss_ctxt_->usb_sbu_compliance ? 0x00 : 0x01;
+		regmap_update_bits(priv->regmap, WCD_USBSS_MG1_BIAS, 0x01, sbu_pldn);
+		regmap_update_bits(priv->regmap, WCD_USBSS_MG2_BIAS, 0x01, sbu_pldn);
 		/* Disconnect D+/D- switch */
 		wcd_usbss_dpdm_switch_update_from_handler(false, false);
 
@@ -1660,11 +1665,15 @@ static int wcd_usbss_sdam_handle_events_locked(int req_state)
 		regmap_update_bits(priv->regmap, WCD_USBSS_DP_BIAS, 0x01, 0x01);
 		regmap_update_bits(priv->regmap, WCD_USBSS_DN_BIAS, 0x01, 0x01);
 
-		if (!wcd_usbss_ctxt_->usb_sbu_compliance) {
-			/* Enable SBU1/2 2K PLDN */
-			regmap_update_bits(priv->regmap, WCD_USBSS_MG1_BIAS, 0x01, 0x01);
-			regmap_update_bits(priv->regmap, WCD_USBSS_MG2_BIAS, 0x01, 0x01);
-		}
+		/*
+		 * Enable SBU1/2 2K PLDN -- or take them off the line, which is
+		 * what SBU compliance wants.  Written either way rather than
+		 * skipped, so they do not survive from whatever the previous
+		 * mode left behind.
+		 */
+		sbu_pldn = wcd_usbss_ctxt_->usb_sbu_compliance ? 0x00 : 0x01;
+		regmap_update_bits(priv->regmap, WCD_USBSS_MG1_BIAS, 0x01, sbu_pldn);
+		regmap_update_bits(priv->regmap, WCD_USBSS_MG2_BIAS, 0x01, sbu_pldn);
 
 		/* Connect D+/D- switch */
 		wcd_usbss_dpdm_switch_connect(priv, true);
