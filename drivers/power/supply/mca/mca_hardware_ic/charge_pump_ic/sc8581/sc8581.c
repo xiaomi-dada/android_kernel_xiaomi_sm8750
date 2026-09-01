@@ -95,7 +95,14 @@
 #define SC8581_BAT_OVP_STEP_MV		25
 #define SC8581_BAT_OVP_MASK		GENMASK(4, 0)
 
-#define SC8581_PMID2OUT_UVP_BASE_MV	50
+/*
+ * The only field where the shipped module and inc/sc8581_reg.h disagree: the
+ * header calls the bottom of this range 50 mV, the shipped module encodes
+ * against 100 mV and clamps anything lower to it.  Every other threshold in
+ * this driver matches the header exactly, so rather than decide which of the
+ * two is wrong about the part, follow the module that runs on it.
+ */
+#define SC8581_PMID2OUT_UVP_BASE_MV	100
 #define SC8581_PMID2OUT_UVP_STEP_MV	50
 #define SC8581_PMID2OUT_UVP_MASK	GENMASK(2, 0)
 
