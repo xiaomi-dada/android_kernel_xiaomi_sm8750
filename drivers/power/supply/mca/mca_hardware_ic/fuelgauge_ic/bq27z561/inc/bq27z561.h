@@ -416,7 +416,6 @@ struct bq_fg_chip {
 	int fw_ver;
 	int df_ver;
 	int nfg1000_section;
-	int ota_update_flag;
 	int nfg1000_ver;
 	u32 nfg1000_section_marker;
 	u32 nfg1000_magic;

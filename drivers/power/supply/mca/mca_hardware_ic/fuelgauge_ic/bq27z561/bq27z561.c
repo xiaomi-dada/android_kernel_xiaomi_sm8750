@@ -5084,6 +5084,14 @@ static noinline int nfg1000_ota_update_check(void *data, int flag)
 		msleep(1500);
 	}
 
+	/*
+	 * Only a finished update clears the request.  Leaving it set after a
+	 * failure is what gets the next attempt, which is why the error paths
+	 * above return without touching it.
+	 */
+	if (ret == 0)
+		bq->ota_update_pending = 0;
+
 	return ret;
 }
 
@@ -5142,7 +5150,7 @@ static int fg_get_ota_update_flag(void *data, int *flag)
 {
 	struct bq_fg_chip *bq = (struct bq_fg_chip *)data;
 
-	*flag = bq->ota_update_flag;
+	*flag = bq->ota_update_pending;
 	mca_log_info("ota update flag %d\n", *flag);
 	return 0;
 }
