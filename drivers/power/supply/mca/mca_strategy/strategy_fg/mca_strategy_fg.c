@@ -2929,13 +2929,17 @@ static void strategy_fg_monitor_workfunc(struct work_struct *work)
 	int ret;
 	bool prohibit_jump = true;
 	int flag;
-	bool master_ok, slave_ok;
+	bool master_ok = false, slave_ok = false;
 
 	if (!fg->fg_init_flag) {
 		flag = platform_fg_ops_probe_ok(FG_IC_MASTER, &master_ok);
-		if (fg->cfg.fg_type > MCA_FG_TYPE_SINGLE_NUM_MAX)
+		fg->dual_present[FG_IC_MASTER] = master_ok;
+		mca_log_err("master flag: %d\n", flag);
+		if (fg->cfg.fg_type > MCA_FG_TYPE_SINGLE_NUM_MAX) {
 			flag |= platform_fg_ops_probe_ok(FG_IC_SLAVE,
 							 &slave_ok);
+			fg->dual_present[FG_IC_SLAVE] = slave_ok;
+		}
 		mca_log_err("master and slave flag: %d\n", flag);
 		if (flag) {
 			/*
