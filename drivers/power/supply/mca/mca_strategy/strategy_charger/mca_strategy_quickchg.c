@@ -3409,18 +3409,34 @@ static void mca_quick_charge_pps_ptf_work(struct work_struct *work)
 	struct mca_quick_charge_info *info =  container_of(work,
 		struct mca_quick_charge_info, pps_ptf_work.work);
 
-	if ((info->proc_data.adp_type == XM_CHARGER_TYPE_PPS && info->is_eu_model) || info->fake_pps_ptf) {
-		protocol_class_get_adapter_pps_ptf(info->proc_data.cur_protocol, &info->pps_ptf);
-		if (!info->pps_ptf) {
-			info->pps_ptf = info->fake_pps_ptf;
-			mca_log_info("pps_ptf= %d\n", info->pps_ptf);
-		}
+	static int check_num;
 
-		schedule_delayed_work(&info->pps_ptf_work,
-			msecs_to_jiffies(MCA_QUICK_CHG_PPS_PTF_INTERVAL));
-	} else {
-		cancel_delayed_work_sync(&info->pps_ptf_work);
+	if (!((info->proc_data.adp_type == XM_CHARGER_TYPE_PPS && info->is_eu_model) ||
+	      info->fake_pps_ptf)) {
+		check_num = 0;
+		return;
 	}
+
+	protocol_class_get_adapter_pps_ptf(info->proc_data.cur_protocol, &info->pps_ptf);
+	if (!info->pps_ptf) {
+		info->pps_ptf = info->fake_pps_ptf;
+		check_num++;
+		mca_log_info("pps_ptf: %d, check_num: %d\n", info->pps_ptf, check_num);
+		/*
+		 * An adapter that has not answered this many times is not
+		 * going to, so stop asking rather than poll it forever.
+		 */
+		if (check_num > MCA_QUICK_CHG_PPS_PTF_MAX_CHECK) {
+			check_num = 0;
+			mca_log_info("this pps charger not support to get ptf, stop get action\n");
+			return;
+		}
+	} else {
+		check_num = 0;
+	}
+
+	schedule_delayed_work(&info->pps_ptf_work,
+			      msecs_to_jiffies(MCA_QUICK_CHG_PPS_PTF_INTERVAL));
 }
 
 static void mca_quick_charge_ibus_queue_push(struct mca_quick_charge_info *info, int ibus)
