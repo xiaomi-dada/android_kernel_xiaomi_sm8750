@@ -2611,6 +2611,13 @@ static void strategy_buckchg_monitor_workfunc(struct work_struct *work)
 					mca_log_info("trigger MCA_EVENT_CHARGE_ACTION\n");
 				}
 			} else {
+				/*
+				 * The shipped module triggers on the jeita vote
+				 * and verify_process_end alone.  Skipping an
+				 * adapter that has already come back verified
+				 * only avoids asking for a quick charge that is
+				 * running; nothing else here reads verifed.
+				 */
 				if (jeita_hot_result && info->verify_process_end && !verifed) {
 					mca_strategy_func_process(STRATEGY_FUNC_TYPE_QUICK_CHARGE,
 						MCA_EVENT_CHARGE_ACTION, 0);
