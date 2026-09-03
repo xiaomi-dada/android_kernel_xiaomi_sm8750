@@ -820,6 +820,13 @@ static int mca_quick_charge_select_cur_work_mode(struct mca_quick_charge_info *i
 	info->proc_data.min_adp_volt = info->proc_data.adp_info[adp_index].cap_info.min_voltage;
 	info->proc_data.max_adp_volt = info->proc_data.adp_info[adp_index].cap_info.max_voltage;
 	info->proc_data.max_adp_curr = info->proc_data.adp_info[adp_index].cap_info.max_current;
+	/*
+	 * Millivolts by milliamps is microwatts, so this lands in watts, and
+	 * it is taken from what the adapter advertises rather than from the
+	 * headroom-adjusted ceiling below.
+	 */
+	info->proc_data.max_power = (info->proc_data.max_adp_volt *
+				     info->proc_data.max_adp_curr) / 1000000;
 
 	(void)protocol_class_pd_get_zimi_cypress_flag(TYPEC_PORT_0, &zimi_cypress_flag);
 	if (zimi_cypress_flag == 1 && info->proc_data.min_adp_volt != info->proc_data.max_adp_volt)
@@ -830,9 +837,10 @@ static int mca_quick_charge_select_cur_work_mode(struct mca_quick_charge_info *i
 		&& info->proc_data.max_adp_volt > MCA_PPS_MAX_VOLT)
 		info->proc_data.max_adp_volt -= MCA_THIRD_PARTY_PPS_HYS_MV;
 
-	mca_log_info("min_adp_volt: %d, max_adp_volt: %d, max_adp_curr: %d, zimi_cypress_flag: %d\n",
+	mca_log_info("min_adp_volt: %d, max_adp_volt: %d, max_adp_curr: %d, max_power: %d, zimi_cypress_flag: %d\n",
 		info->proc_data.min_adp_volt, info->proc_data.max_adp_volt,
-		info->proc_data.max_adp_curr, zimi_cypress_flag);
+		info->proc_data.max_adp_curr, info->proc_data.max_power,
+		zimi_cypress_flag);
 
 	return 0;
 }
