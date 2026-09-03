@@ -4346,6 +4346,17 @@ static void strategy_wireless_init_work(struct strategy_wireless_dev *info)
 	INIT_LIST_HEAD(&info->irq_queue);
 	spin_lock_init(&info->irq_queue_lock);
 	init_waitqueue_head(&info->irq_wait);
+	/*
+	 * The consumer loop is started here and runs until remove(), so it
+	 * holds a system_wq worker for the life of the driver.  The shipped
+	 * module instead starts it when a coil comes online and cancels it on
+	 * disconnect.  Both process every interrupt -- they only arrive while
+	 * something is on the coil -- but that lifecycle is not reproduced
+	 * here: cancelling a worker parked in wait_event_interruptible only
+	 * returns if the flag is cleared and the queue woken first, and
+	 * getting that ordering wrong hangs the disconnect path.  Untested
+	 * without a charger to connect, so it is left running.
+	 */
 	INIT_WORK(&info->irq_work, strategy_wireless_process_irq_work);
 	info->irq_work_running = true;
 	schedule_work(&info->irq_work);
