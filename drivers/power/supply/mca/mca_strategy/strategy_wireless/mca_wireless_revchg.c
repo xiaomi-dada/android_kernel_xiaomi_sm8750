@@ -1120,15 +1120,25 @@ static void mca_wireless_rev_charge_config_work(struct work_struct *work)
 	ret = mca_wireless_rev_charge_config(true);
 	mca_log_err("stop reverse_chg_config!!!ret = %d", ret);
 
+	/*
+	 * revchg_config_close tells mca_wireless_rev_enable_reverse_charge()
+	 * not to cancel this work, the way tx_timeout_flag does for the two
+	 * timeout works.  Without it the close path waits for the work it is
+	 * running inside, which never returns.
+	 */
 	if (!info->proc_data.user_reverse_chg) {
 		mca_log_err("user close reverse charge!!!");
+		info->proc_data.revchg_config_close = true;
 		mca_wireless_rev_enable_reverse_charge(false);
+		info->proc_data.revchg_config_close = false;
 		return;
 	}
 
 	if (ret) {
 		mca_log_err("reverse charge fail!!!");
+		info->proc_data.revchg_config_close = true;
 		mca_wireless_rev_enable_reverse_charge(false);
+		info->proc_data.revchg_config_close = false;
 		mca_log_err("reverse charge fail!!!end");
 		info->proc_data.reverse_chg_sts = REVERSE_STATE_ENDTRANS;
 		len = snprintf(event, MCA_EVENT_NOTIFY_SIZE,
