@@ -541,7 +541,7 @@ mca_wireless_charger_thermal_flip_handle_limit(struct mca_thermal_info *chip)
 static void
 mca_wireless_charger_thermal_handle_limit(struct mca_thermal_info *chip)
 {
-	struct mca_thermal_ctrl_info *ctrl = &chip->wireless_ctrl_info;
+	struct mca_thermal_ctrl_info *ctrl;
 	const int *row = NULL;
 	int limit[THERMAL_MODE_WIRELESS_MAX];
 	int level;
@@ -551,6 +551,8 @@ mca_wireless_charger_thermal_handle_limit(struct mca_thermal_info *chip)
 		mca_log_err("thermal info is NULL\n");
 		return;
 	}
+
+	ctrl = &chip->wireless_ctrl_info;
 	if (!ctrl->voter_ok) {
 		mca_log_err("voter is not ready\n");
 		return;
