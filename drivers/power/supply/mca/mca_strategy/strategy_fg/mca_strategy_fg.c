@@ -2815,8 +2815,6 @@ static void strategy_fg_adjust_interval(struct strategy_fg *fg)
 		return;
 	}
 
-	(void)strategy_class_fg_ops_get_soc();
-
 	if (fg->near_vterm) {
 		fg->update_interval = STRATEGY_FG_WORK_INTERVAL_FAST;
 	} else if (fg->chg_status == POWER_SUPPLY_STATUS_CHARGING) {
