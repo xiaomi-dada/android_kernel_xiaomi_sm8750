@@ -3272,7 +3272,7 @@ static int strategy_fg_ops_get_thermal_temp(void *data, int *temp)
 
 	if (!fg || !fg->fg_init_flag)
 		*temp = STRATEGY_FG_ERROR_FAKE_TEMP;
-	else if (fg->thermal_temp_select == 0)
+	else if (!fg->cfg.support_pnc)
 		*temp = fg->batt_temperature;
 	else
 		*temp = fg->original_temp;
