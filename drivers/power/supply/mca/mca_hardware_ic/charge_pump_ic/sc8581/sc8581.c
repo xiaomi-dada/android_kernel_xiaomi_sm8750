@@ -304,7 +304,6 @@ struct sc8581_fsw_cfg {
  * @chip_ok:         the part answered and identified itself
  * @log_tag:         which pump this is, for the log
  * @work_mode:       the division it is set to
- * @operation_mode:  forward or reverse
  * @chip_vendor:     which part it turned out to be
  * @adc_mode:        which channels the ADC is converting
  * @product_cfg:     what the part reported as its identity
@@ -324,7 +323,6 @@ struct sc8581_device {
 	bool			chip_ok;
 	char			log_tag[24];
 	int			work_mode;
-	int			operation_mode;
 	int			chip_vendor;
 	/* Last state of the CBOOT pin diagnostic, to report each change once. */
 	bool			cboot_short;
