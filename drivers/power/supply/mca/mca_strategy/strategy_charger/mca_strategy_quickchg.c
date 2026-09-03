@@ -2197,6 +2197,12 @@ static void mca_quick_charge_check_charge_done(struct mca_quick_charge_info *inf
 		info->proc_data.charge_flag = MCA_QUICK_CHG_STS_CHARGE_DONE;
 	}
 
+	/*
+	 * The shipped module ends on the count alone.  Ending as soon as the
+	 * gauge reports the pack full as well means a pack that is already
+	 * done is not held at fast charge for another five polls; it can only
+	 * end the charge earlier, never later.
+	 */
 	if (count > QUICK_CHARGE_TERMATIN_TIMEOUT || charging_done) {
 		info->proc_data.charge_flag = MCA_QUICK_CHG_STS_CHARGE_DONE;
 		/*
