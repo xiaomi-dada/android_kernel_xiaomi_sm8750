@@ -17,6 +17,7 @@
 #include <linux/mutex.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/rculist.h>
 #include <linux/slab.h>
 #include <linux/soc/qcom/qti_pmic_glink.h>
 #include <linux/string.h>
@@ -143,8 +144,14 @@ static int mca_adsp_glink_register(struct list_head *list,
 	node->cb = cb;
 	node->data = data;
 
+	/*
+	 * Publish with the rcu form: the notification path walks this list
+	 * from the glink callback, which cannot take the lock.  Nothing is
+	 * ever removed from the list, so a reader only has to be kept from
+	 * seeing a node before the fields above are visible.
+	 */
 	mutex_lock(&mca_adsp_glink_ops_lock);
-	list_add_tail(&node->node, list);
+	list_add_tail_rcu(&node->node, list);
 	mutex_unlock(&mca_adsp_glink_ops_lock);
 
 	return 0;
@@ -301,13 +308,19 @@ static void mca_adsp_glink_handle_notification(struct list_head *list,
 	mca_log_info("mca_adsp receive notification %d, owner %d\n",
 		     msg->notification, msg->hdr.owner);
 
-	mutex_lock(&mca_adsp_glink_ops_lock);
-	list_for_each_entry(node, list, node) {
+	/*
+	 * pmic_glink calls its clients under a spinlock with interrupts off,
+	 * so nothing here may sleep.  The registered notify callbacks are
+	 * written for that -- they allocate with GFP_ATOMIC -- and the list
+	 * is only ever appended to, so walking it needs no lock of its own.
+	 */
+	rcu_read_lock();
+	list_for_each_entry_rcu(node, list, node) {
 		if (node->cb->notify_cb)
 			node->cb->notify_cb(msg->notification, msg->data,
 					    MCA_GLINK_DATA_MAX, node->data);
 	}
-	mutex_unlock(&mca_adsp_glink_ops_lock);
+	rcu_read_unlock();
 }
 
 static int mca_adsp_glink_callback(void *priv, void *data, size_t len)
