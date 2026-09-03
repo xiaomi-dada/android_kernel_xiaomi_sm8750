@@ -68,13 +68,7 @@ static int adsp_pd_read_u32(u32 prop, u32 *val)
  */
 static int adsp_pd_read_bool(u32 prop, bool *val)
 {
-	u8 raw = 0;
-	int rc;
-
-	rc = mca_adsp_glink_read_prop(prop, &raw, sizeof(raw));
-	*val = !!raw;
-
-	return rc;
+	return mca_adsp_glink_read_prop(prop, val, sizeof(*val));
 }
 
 static int adsp_pd_write_u32(u32 prop, u32 val)
