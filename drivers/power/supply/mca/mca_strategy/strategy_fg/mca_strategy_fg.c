@@ -986,8 +986,8 @@ static __always_inline int strategy_fg_get_parallel_error_state(struct strategy_
 	bool fg_error_slave;
 	int ret;
 
-	ret = platform_fg_ops_get_error_state(FG_IC_SLAVE, &fg_error_master);
-	ret |= platform_fg_ops_get_error_state(FG_IC_MASTER, &fg_error_slave);
+	ret = platform_fg_ops_get_error_state(FG_IC_SLAVE, &fg_error_slave);
+	ret |= platform_fg_ops_get_error_state(FG_IC_MASTER, &fg_error_master);
 	pr_err("%s master %d slave %d\n", __func__, fg_error_master,
 	       fg_error_slave);
 	mca_log_info("master %d slave %d\n", fg_error_master, fg_error_slave);
@@ -999,8 +999,8 @@ static __always_inline int strategy_fg_get_parallel_error_state(struct strategy_
 	else
 		fg->fg_error = 0;
 
-	fg->dual_error[FG_IC_MASTER] = fg_error_slave;
-	fg->dual_error[FG_IC_SLAVE] = fg_error_master;
+	fg->dual_error[FG_IC_MASTER] = fg_error_master;
+	fg->dual_error[FG_IC_SLAVE] = fg_error_slave;
 
 	return 0;
 }
