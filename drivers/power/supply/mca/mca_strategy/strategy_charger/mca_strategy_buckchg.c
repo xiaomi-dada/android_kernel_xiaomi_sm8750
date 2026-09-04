@@ -3550,6 +3550,33 @@ static int strategy_buckchg_class_probe(struct platform_device *pdev)
 
 static int strategy_buckchg_class_remove(struct platform_device *pdev)
 {
+	struct strategy_buckchg_dev *info = g_buckchg_info;
+
+	if (!info)
+		return 0;
+
+	/*
+	 * Both chains hold a notifier block that lives inside info, which is
+	 * devm memory and goes away once this returns.  Drop them before the
+	 * works, so nothing is queued behind the cancels.
+	 */
+	mca_event_block_notify_unregister(MCA_EVENT_TYPE_THERMAL_TEMP,
+					  &info->thermal_board_nb);
+	mca_event_block_notify_unregister(MCA_EVENT_TYPE_PANEL,
+					  &info->panel_nb);
+
+	cancel_delayed_work_sync(&info->monitor_work);
+	cancel_delayed_work_sync(&info->wls_revchg_monitor_work);
+	cancel_delayed_work_sync(&info->check_pd_secret_work);
+	cancel_delayed_work_sync(&info->rerun_handle_pd_auth_work);
+	cancel_delayed_work_sync(&info->csd_pulse_process_work);
+	cancel_delayed_work_sync(&info->source_status_monitor_work);
+	cancel_delayed_work_sync(&info->sw_cv_work);
+	cancel_delayed_work_sync(&info->base_flip_sw_cv_work);
+	cancel_delayed_work_sync(&info->soc_limit_stepper_work);
+
+	g_buckchg_info = NULL;
+
 	return 0;
 }
 
