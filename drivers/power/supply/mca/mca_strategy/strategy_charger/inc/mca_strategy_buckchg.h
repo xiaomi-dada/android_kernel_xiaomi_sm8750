@@ -191,7 +191,6 @@ enum mca_buckchg_battery_type {
 #define DEFAULT_SUPPORT_HW_BC12 0
 #define MCA_WIRE_CHARGE_DEFAULT_IBUS_CURRENT    500
 #define MCA_WIRE_CHARGE_DEFAULT_IBAT_CURRENT    500
-#define FULL_REPLUG_LIMIT_RAWSOC_TH 9900
 #define BUCKCHG_OK_TO_HIGH_IBAT_RAWSOC_TH 9600
 
 enum usbin_wlsrevchg_type {
@@ -423,7 +422,6 @@ struct strategy_buckchg_dev {
 	int vote_buck_vterm_buf;
 	int vote_buck_iterm_buf;
 	int sw_cv_vterm_th;
-	int full_replug_ichg_limit;
 	bool dpdm_detect_done;
 };
 

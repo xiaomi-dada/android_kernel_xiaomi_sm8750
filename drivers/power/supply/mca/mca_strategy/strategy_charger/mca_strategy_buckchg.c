@@ -236,8 +236,6 @@ static void strategy_buckchg_parse_dt(struct strategy_buckchg_dev *info)
 		"support-pmic-vterm-dynamics-adjust");
 	mca_parse_dts_u32(info->dev->of_node, "sw_cv_vterm_th",
 		&info->sw_cv_vterm_th, STATEGY_CHARGE_VTERM_LOW_TH);
-	mca_parse_dts_u32(info->dev->of_node, "full_replug_ichg_limit",
-	&info->full_replug_ichg_limit, 0);
 
 
 	ret = mca_parse_dts_u32_array(info->dev->of_node, "rev_req_vadp", idata, REV_USBIN_TYPE_MAX);
@@ -673,22 +671,6 @@ static int strategy_buckchg_init_voter(struct strategy_buckchg_dev *info)
 	return 0;
 }
 
-static void strategy_buckchg_limit_full_replug_ichg(struct strategy_buckchg_dev *info, bool plugin)
-{
-	int rawsoc = 0;
-
-	if (!info->full_replug_ichg_limit) {
-		return;
-	}
-
-	strategy_class_fg_ops_get_rsoc(&rawsoc);
-	if (plugin && rawsoc >= FULL_REPLUG_LIMIT_RAWSOC_TH) {
-		mca_vote(info->charge_limit_voter, "full_replug", true, info->full_replug_ichg_limit);
-	} else if (rawsoc < FULL_REPLUG_LIMIT_RAWSOC_TH || info->proc_data.chg_status == MCA_BUCK_CHG_STS_CHARGE_DONE) {
-		mca_vote(info->charge_limit_voter, "full_replug", false, 0);
-	}
-}
-
 static void strategy_buckchg_resume_buck_ichg_limit(struct strategy_buckchg_dev *info)
 {
 	int rawsoc = 0;
@@ -702,7 +684,6 @@ static void strategy_buckchg_resume_buck_ichg_limit(struct strategy_buckchg_dev 
 static void strategy_buckchg_start_charging(struct strategy_buckchg_dev *info)
 {
 	mca_log_info("start charging\n");
-	strategy_buckchg_limit_full_replug_ichg(info, true);
 	strategy_buck_update_req_volt(info);
 	cancel_delayed_work_sync(&info->monitor_work);
 	strategy_class_buckchg_ops_adc_enable(info, true);
@@ -744,7 +725,6 @@ static void strategy_buckchg_reset_charge_para(struct strategy_buckchg_dev *info
 	mca_vote(info->charge_limit_voter, "csd_pulse", false, 0);
 	mca_vote(info->charge_limit_voter, "qc_done", false, 0);
 	mca_vote(info->chg_enable_voter, "csd_pulse", false, STATEGY_CHARGE_DISENABLE);
-	mca_vote(info->charge_limit_voter, "full_replug", false, 0);
 	info->csd_flag = false;
 
 	/*xring system abnormal use default ibus and ibat 500mA */
@@ -2644,7 +2624,6 @@ static void strategy_buckchg_monitor_workfunc(struct work_struct *work)
 	strategy_buckchg_update_charge_status(info);
 	strategy_buckchg_check_non_compliant_qc_charger(info);
 	strategy_buckchg_update_aicl_cfg(info);
-	strategy_buckchg_limit_full_replug_ichg(info, false);
 	strategy_buckchg_resume_buck_ichg_limit(info);
 	if (info->proc_data.chg_status == MCA_BUCK_CHG_STS_CHARGING) {
 		if (info->proc_data.charge_done_force_5v) {
