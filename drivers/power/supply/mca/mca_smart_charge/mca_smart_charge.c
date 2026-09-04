@@ -1516,8 +1516,16 @@ static int smart_charge_cal_checksum(struct smart_charge_info *info)
 		    basp_header->wired_ffc_size, basp_header->wired_normal_size,
 		    basp_header->wls_ffc_size, basp_header->wls_normal_size);
 
+	/*
+	 * mmap_addr is always a single kzalloc(PAGE_SIZE) allocation and
+	 * total_len is read straight out of that page, which userspace can
+	 * write through either the mapping or SMARTCHG_DATA_CMD.  Bound it
+	 * against the allocation itself; map_flag only narrows it further to
+	 * the length userspace actually mapped.
+	 */
 	total_len = basp_header->total_len;
-	if ((total_len > buffer_size && info->map_flag) ||
+	if (total_len > PAGE_SIZE ||
+	    (info->map_flag && total_len > buffer_size) ||
 	    total_len < sizeof(struct smart_basp_header)) {
 		mca_log_err("Invalid total_len: %zu\n", total_len);
 		kfree(basp_header);
