@@ -5747,7 +5747,18 @@ static int mca_quick_charge_probe(struct platform_device *pdev)
 
 static int mca_quick_charge_remove(struct platform_device *pdev)
 {
+	struct mca_quick_charge_info *info = platform_get_drvdata(pdev);
+
 	mca_quick_charge_remove_group(&pdev->dev);
+
+	if (!info)
+		return 0;
+
+	cancel_delayed_work_sync(&info->monitor_work);
+	cancel_delayed_work_sync(&info->vfc_work);
+	cancel_delayed_work_sync(&info->pps_ptf_work);
+	cancel_delayed_work_sync(&info->float_vbat_drop_work);
+
 	return 0;
 }
 
