@@ -4517,6 +4517,29 @@ static int nfg1000_write(struct bq_fg_chip *bq, u8 reg, u8 *buf,
 	return ret;
 }
 
+/*
+ * Every bootloader command frame is preceded by a write of zero to register 0,
+ * which puts the part's address pointer back to the start.  Without it the
+ * frame lands wherever the previous transfer left the pointer.  The register
+ * writes that unlock AltManufacturerAccess are not command frames and do not
+ * take this.
+ */
+static int nfg1000_write_cmd(struct bq_fg_chip *bq, u8 reg, u8 *buf, u8 len)
+{
+	u8 zero_addr[2] = { 0x00, 0x00 };
+	int ret;
+
+	mutex_lock(&bq->i2c_rw_lock);
+	ret = __fg_write_block(bq->client, 0x00, zero_addr, 2);
+	if (ret < 0)
+		mca_log_err("could not write zero_addr, ret=%d\n", ret);
+	else
+		ret = __fg_write_block(bq->client, reg, buf, len);
+	mutex_unlock(&bq->i2c_rw_lock);
+
+	return ret;
+}
+
 static __always_inline int nfg1000_status_ok(struct bq_fg_chip *bq)
 {
 	u8 wbuf = NFG1000_STATUS_CMD;
@@ -4563,7 +4586,7 @@ static int nfg1000_erase_flash_step(struct bq_fg_chip *bq, u32 addr, u8 param)
 	frame[9] = GetCRC8(frame, 9);
 
 	for (retry = 0; retry < 5; retry++) {
-		ret = nfg1000_write(bq, frame[1], &frame[2], 8);
+		ret = nfg1000_write_cmd(bq, frame[1], &frame[2], 8);
 		msleep((param & 0xff) * 10);
 		if (ret < 0) {
 			mca_log_err("erase write fail\n");
@@ -4599,7 +4622,7 @@ static int nfg1000_read_flash_step(struct bq_fg_chip *bq, u32 addr, u8 *buf,
 	frame[7] = GetCRC8(frame, 7);
 
 	for (retry = 0; retry < 5; retry++) {
-		ret = nfg1000_write(bq, frame[1], &frame[2], 6);
+		ret = nfg1000_write_cmd(bq, frame[1], &frame[2], 6);
 		usleep_range(2000, 2100);
 		if (ret < 0) {
 			mca_log_err("read setup fail\n");
@@ -4656,7 +4679,7 @@ static int nfg1000_update_flash_step(struct bq_fg_chip *bq, u32 addr,
 		frame[5] = (paddr >> 16) & 0xff;
 		frame[6] = 0;
 		frame[7] = GetCRC8(frame, 7);
-		ret = nfg1000_write(bq, frame[1], &frame[2], 6);
+		ret = nfg1000_write_cmd(bq, frame[1], &frame[2], 6);
 		usleep_range(2000, 2100);
 		if (ret < 0)
 			mca_log_err("update: setup 0x%x fail\n", paddr);
@@ -4664,7 +4687,7 @@ static int nfg1000_update_flash_step(struct bq_fg_chip *bq, u32 addr,
 		page[0] = 0xaa;
 		page[1] = paddr & 0xff;
 		memcpy(&page[2], src + off, NFG1000_PAGE_SIZE);
-		ret = nfg1000_write(bq, page[0], &page[1], 1 + NFG1000_PAGE_SIZE);
+		ret = nfg1000_write_cmd(bq, page[0], &page[1], 1 + NFG1000_PAGE_SIZE);
 		usleep_range(10000, 10100);
 		if (ret < 0)
 			mca_log_err("update: write 0x%x fail\n", paddr);
@@ -4767,7 +4790,7 @@ static noinline int nfg1000_ota_program_step6_CheckCrc(struct bq_fg_chip *bq)
 	frame[13] = GetCRC8(frame, 13);
 
 	for (retry = 0; retry < 5; retry++) {
-		ret = nfg1000_write(bq, frame[1], &frame[2], 12);
+		ret = nfg1000_write_cmd(bq, frame[1], &frame[2], 12);
 		usleep_range(2000, 2100);
 		if (ret < 0) {
 			mca_log_err("could not write flash\n");
@@ -4794,7 +4817,7 @@ static int nfg1000_ota_program_step7_ExitBoot(struct bq_fg_chip *bq)
 	frame[3] = 0x00;
 	frame[4] = GetCRC8(frame, 4);
 
-	ret = nfg1000_write(bq, frame[1], &frame[2], 3);
+	ret = nfg1000_write_cmd(bq, frame[1], &frame[2], 3);
 	usleep_range(2000, 2100);
 	usleep_range(10000, 10100);
 	if (ret < 0 || nfg1000_status_ok(bq) < 0) {
@@ -4860,7 +4883,7 @@ static int nfg1000_ota_program_step2_ShaAuth(struct bq_fg_chip *bq)
 	frame[2] = 0x20;
 	memcpy(&frame[3], sha_256_ramdom_data, sizeof(sha_256_ramdom_data));
 	frame[35] = GetCRC8(frame, 35);
-	ret = nfg1000_write(bq, frame[1], &frame[2], 34);
+	ret = nfg1000_write_cmd(bq, frame[1], &frame[2], 34);
 	usleep_range(2000, 2100);
 	if (ret < 0) {
 		mca_log_err("sha auth: challenge write fail\n");
@@ -4872,7 +4895,7 @@ static int nfg1000_ota_program_step2_ShaAuth(struct bq_fg_chip *bq)
 	frame[2] = 0x20;
 	memcpy(&frame[3], sha_256_pass_word, sizeof(sha_256_pass_word));
 	frame[35] = GetCRC8(frame, 35);
-	ret = nfg1000_write(bq, frame[1], &frame[2], 34);
+	ret = nfg1000_write_cmd(bq, frame[1], &frame[2], 34);
 	usleep_range(2000, 2100);
 	if (ret < 0) {
 		mca_log_err("sha auth: response write fail\n");
@@ -5019,16 +5042,8 @@ static int nfg1000_ota_program_step4_gauge_version(struct bq_fg_chip *bq)
  */
 static int fg_ota_write_block(struct bq_fg_chip *bq, u8 reg, u8 *buf, u8 len)
 {
-	u8 zero_addr[2] = { 0x00, 0x00 };
-	int ret;
+	int ret = nfg1000_write_cmd(bq, reg, buf, len);
 
-	mutex_lock(&bq->i2c_rw_lock);
-	ret = __fg_write_block(bq->client, 0x00, zero_addr, 2);
-	if (ret < 0)
-		mca_log_err("could not write zero_addr, ret=%d\n", ret);
-	else
-		ret = __fg_write_block(bq->client, reg, buf, len);
-	mutex_unlock(&bq->i2c_rw_lock);
 	usleep_range(2000, 2100);
 
 	return ret;
