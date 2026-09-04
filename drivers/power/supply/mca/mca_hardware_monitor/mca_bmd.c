@@ -42,7 +42,7 @@
 #define BMD_REPORT_DELAY_MS		10000
 
 /* How long to wait before asking for a pin that was not free. */
-#define BMD_RESOURCE_RETRY_MS		1000
+#define BMD_RESOURCE_RETRY_MS		100
 
 /* How many times that is worth trying. */
 #define BMD_RESOURCE_RETRY_MAX		10
