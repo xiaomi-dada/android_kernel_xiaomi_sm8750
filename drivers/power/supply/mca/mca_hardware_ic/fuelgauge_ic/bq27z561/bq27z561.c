@@ -2367,7 +2367,7 @@ static void fg_write_first_usage_date(struct bq_fg_chip *bq, const char *buf, si
 	ret = fg_mac_read_block(bq, FG_MAC_CMD_UI_SOH, data, 32);
 	if (ret < 0) {
 		mca_log_info("failed to get first_usage\n");
-		return;
+		goto out;
 	}
 
 	if ((data[11] == 0x00 && data[12] == 0x00 && data[13] == 0x00) ||
@@ -2375,7 +2375,7 @@ static void fg_write_first_usage_date(struct bq_fg_chip *bq, const char *buf, si
 		mca_log_err("first_usage_date invalid, write\n");
 	} else {
 		mca_log_err("first_usage_date valid,do not write\n");
-		return;
+		goto out;
 	}
 
 	/*example,20241220,2024(0x34)1(0x31)2(0x32)2(0x32)0(0x30)*/
@@ -2410,6 +2410,9 @@ static void fg_write_first_usage_date(struct bq_fg_chip *bq, const char *buf, si
 			fg_mac_write_block(bq, FG_MAC_CMD_UI_SOH, data, 32);
 		}
 	}
+
+out:
+	kfree(tmp_buf);
 }
 
 static int fg_get_one_first_usage_date(void *data, u8 *buf)
