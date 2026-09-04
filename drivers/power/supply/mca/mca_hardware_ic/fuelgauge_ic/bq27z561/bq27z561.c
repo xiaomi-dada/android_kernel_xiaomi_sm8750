@@ -4330,6 +4330,7 @@ static void fg_store_ui_soh(struct bq_fg_chip *bq, const char *buf, size_t size)
 	unsigned char data[32] = { 0 };
 	unsigned int temp = 0;
 	char *tmp_buf = NULL;
+	char *str;
 
 	tmp_buf = kzalloc(size + 1, GFP_KERNEL);
 	if (!tmp_buf)
@@ -4337,7 +4338,12 @@ static void fg_store_ui_soh(struct bq_fg_chip *bq, const char *buf, size_t size)
 
 	strscpy(tmp_buf, buf, size + 1);
 	mca_log_info("%s\n", tmp_buf);
-	while ((pchar = strsep(&tmp_buf, " ")) != NULL) {
+	/*
+	 * strsep walks the pointer it is given, so it gets a cursor of its
+	 * own; tmp_buf has to still point at the allocation to give it back.
+	 */
+	str = tmp_buf;
+	while ((pchar = strsep(&str, " ")) != NULL) {
 		if (kstrtouint(pchar, 0, &temp)) {
 			mca_log_err("pchar cover to int fail\n");
 			goto _write_reg;
@@ -4355,13 +4361,16 @@ _write_reg:
 	ret = fg_mac_read_block(bq, FG_MAC_CMD_UI_SOH, data, 32);
 	if (ret < 0) {
 		mca_log_info("failed to get first_usage\n");
-		return;
+		goto out;
 	}
 	for (i = 0; i < 11; i++)
 		data[i] = data_uisoh[i];
 
 	if (fg_mac_write_block(bq, FG_MAC_CMD_UI_SOH, data, 32))
 		mca_log_err("write ui_soh failed\n");
+
+out:
+	kfree(tmp_buf);
 }
 
 static int __fg_mac_read_block(struct bq_fg_chip *bq, u16 cmd, u8 *buf,
