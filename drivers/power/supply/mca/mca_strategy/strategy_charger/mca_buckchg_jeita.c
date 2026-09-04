@@ -1126,7 +1126,7 @@ static int mca_buckchg_jeita_smartchg_update_baa_para(void *data, char *baa_para
 {
 	struct mca_buckchg_jeita_dev *jeita = data;
 	struct smart_batt_jeita_term_para *para;
-	int i, ret;
+	int i, idx;
 
 	if (!jeita || !baa_para) {
 		mca_log_err("data or baa_para is NULL\n");
@@ -1135,18 +1135,31 @@ static int mca_buckchg_jeita_smartchg_update_baa_para(void *data, char *baa_para
 
 	para = (struct smart_batt_jeita_term_para *)baa_para;
 
-	for (i = 0; i < ffc_size && i < jeita->jeita_para.fcc_size; i++) {
-		ret = mca_buckchg_jeita_smartchg_baa_update_jeita_data(
-			&jeita->jeita_para.jeita_ffc_data[i], &para[i]);
-		if (ret)
-			return ret;
+	/*
+	 * Each entry names the band it revises, so the set need be neither
+	 * complete nor in order.  One entry naming a band this battery does
+	 * not have says nothing about the rest, and is passed over alone.
+	 */
+	for (i = 0; i < ffc_size; i++) {
+		idx = para[i].t_range.idx;
+		if (idx < 0 || idx >= jeita->jeita_para.fcc_size) {
+			mca_log_err("jeita_para.fcc_size: %d, invalid idx: %d\n",
+				    jeita->jeita_para.fcc_size, idx);
+			continue;
+		}
+		mca_buckchg_jeita_smartchg_baa_update_jeita_data(
+			&jeita->jeita_para.jeita_ffc_data[idx], &para[i]);
 	}
 
-	for (i = 0; i < normal_size && i < jeita->jeita_para.size; i++) {
-		ret = mca_buckchg_jeita_smartchg_baa_update_jeita_data(
-			&jeita->jeita_para.jeita_data[i], &para[ffc_size + i]);
-		if (ret)
-			return ret;
+	for (i = 0; i < normal_size; i++) {
+		idx = para[ffc_size + i].t_range.idx;
+		if (idx < 0 || idx >= jeita->jeita_para.size) {
+			mca_log_err("jeita_para.size: %d, invalid idx: %d\n",
+				    jeita->jeita_para.size, idx);
+			continue;
+		}
+		mca_buckchg_jeita_smartchg_baa_update_jeita_data(
+			&jeita->jeita_para.jeita_data[idx], &para[ffc_size + i]);
 	}
 
 	/*
