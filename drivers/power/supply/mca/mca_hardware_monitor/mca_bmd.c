@@ -518,6 +518,15 @@ static int mca_bmd_probe(struct platform_device *pdev)
 
 static int mca_bmd_remove(struct platform_device *pdev)
 {
+	struct mca_bmd_dev *chip = platform_get_drvdata(pdev);
+
+	if (!chip)
+		return 0;
+
+	cancel_delayed_work_sync(&chip->monitor_bmd_work);
+	cancel_delayed_work_sync(&chip->delay_report_bmd_sts_work);
+	cancel_delayed_work_sync(&chip->request_hw_resource_work);
+
 	return 0;
 }
 
