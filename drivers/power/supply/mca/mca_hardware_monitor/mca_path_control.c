@@ -598,12 +598,12 @@ static int mca_path_control_parse_process(struct mca_path_control *chip,
 
 	for (i = 0; i < count; i++) {
 		if (mca_parse_dts_string_index(np, prop, i, &field))
-			return -1;
+			goto err;
 
 		mca_log_debug("[%d]control_gate_para %s\n", i, field);
 
 		if (kstrtoint(field, 10, &val))
-			return -1;
+			goto err;
 
 		if (i % PATH_CONTROL_GATE_COLS == 0)
 			boost->gate_enable_info[i / PATH_CONTROL_GATE_COLS].control_gate_role = val;
@@ -612,6 +612,18 @@ static int mca_path_control_parse_process(struct mca_path_control *chip,
 	}
 
 	return 0;
+
+err:
+	/*
+	 * A half-filled gate list is worse than none: the rows past the
+	 * failure hold whatever kcalloc zeroed, and gate role 0 is a real
+	 * role.  Drop it and say so with the count.
+	 */
+	kfree(boost->gate_enable_info);
+	boost->gate_enable_info = NULL;
+	boost->boost_para[PATH_CONTROL_BOOST_GATE_NUM] = 0;
+
+	return -1;
 }
 
 static int mca_path_control_parse_path(struct mca_path_control *chip,
@@ -647,7 +659,7 @@ static int mca_path_control_parse_path(struct mca_path_control *chip,
 			&path->boost_cfg[i / PATH_CONTROL_PATH_COLS];
 
 		if (mca_parse_dts_string_index(np, prop, i, &field))
-			return -1;
+			goto err;
 
 		mca_log_debug("[%d]process para %s\n", i, field);
 
@@ -663,17 +675,17 @@ static int mca_path_control_parse_path(struct mca_path_control *chip,
 			}
 
 			if (mca_path_control_parse_process(chip, boost, field))
-				return -1;
+				goto err;
 
 			continue;
 		}
 
 		if (kstrtoint(field, 10, &val))
-			return -1;
+			goto err;
 
 		if (i % 2 == 0) {
 			if (val > 1)
-				return -1;
+				goto err;
 			idx = val;
 		} else {
 			boost->boost_para[idx] = val;
@@ -681,6 +693,23 @@ static int mca_path_control_parse_path(struct mca_path_control *chip,
 	}
 
 	return 0;
+
+err:
+	/*
+	 * Rows parsed before the failure own gate lists of their own, and
+	 * nothing else has a reference to them yet, so this is the only
+	 * chance to give them back.
+	 */
+	for (i = 0; i < path->boost_cfg_num; i++) {
+		kfree(path->boost_cfg[i].gate_enable_info);
+		path->boost_cfg[i].gate_enable_info = NULL;
+	}
+
+	kfree(path->boost_cfg);
+	path->boost_cfg = NULL;
+	path->boost_cfg_num = 0;
+
+	return -1;
 }
 
 static int mca_path_control_parse_condition(struct mca_path_control *chip)
