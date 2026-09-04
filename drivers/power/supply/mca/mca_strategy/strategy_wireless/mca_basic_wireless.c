@@ -2213,6 +2213,31 @@ static void  strategy_wireless_reset_charge_para(struct strategy_wireless_dev *i
 	mca_vote(info->input_limit_voter, "thermal_phone", false, 0);
 }
 
+/*
+ * strategy_wireless_reset_trans_list() - drop whatever is still queued
+ * @info: this driver's state
+ *
+ * The transfer queue holds requests aimed at the transmitter we were talking
+ * to.  Once the receiver is gone those requests mean nothing, and acting on
+ * them against whatever transmitter comes next would send a Q value or a fan
+ * speed belonging to a finished session.  Called with the work that drains
+ * the queue already cancelled, so nothing is competing for the entries.
+ */
+static void strategy_wireless_reset_trans_list(struct strategy_wireless_dev *info)
+{
+	struct trans_data_lis_node *cur_node, *temp_node;
+
+	spin_lock(&info->list_lock);
+	list_for_each_entry_safe(cur_node, temp_node, &info->header, lnode) {
+		list_del(&cur_node->lnode);
+		kfree(cur_node);
+		info->head_cnt--;
+	}
+	spin_unlock(&info->list_lock);
+
+	mca_log_info("success reset trans list\n");
+}
+
 static void strategy_wireless_power_good_off(struct strategy_wireless_dev *info)
 {
 	int usb_input_suspend;
@@ -2228,6 +2253,7 @@ static void strategy_wireless_power_good_off(struct strategy_wireless_dev *info)
 	wake_up_interruptible(&info->wait_que);
 
 	cancel_delayed_work_sync(&info->trans_data_work);
+	strategy_wireless_reset_trans_list(info);
 	cancel_delayed_work_sync(&info->max_power_control_work);
 	cancel_delayed_work_sync(&info->monitor_work);
 	cancel_delayed_work_sync(&info->update_wireless_thermal_work);
