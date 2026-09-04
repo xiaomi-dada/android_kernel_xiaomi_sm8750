@@ -1809,6 +1809,7 @@ static int strategy_buckchg_set_config(int config, int value, void *data)
 static void strategy_buckchg_update_aicl_cfg(struct strategy_buckchg_dev *info)
 {
 	int aicl_thd = STATEGY_CHARGE_AICL_TH_4P4V;
+	struct mca_hwid_info *hwid;
 	int reg_aicl_thd = 0;
 
 	if (info->proc_data.chg_status == MCA_BUCK_CHG_NO_CHARGING
@@ -1824,6 +1825,19 @@ static void strategy_buckchg_update_aicl_cfg(struct strategy_buckchg_dev *info)
 
 	if (info->proc_data.vbat >= STATEGY_CHARGE_AICL_VBAT_TH)
 		aicl_thd = STATEGY_CHARGE_AICL_TH_4P5V;
+
+	/*
+	 * One board splits this at 4.2V instead, and drops to 4.1V below it
+	 * rather than holding 4.4V.  This is dada, project 2, so the
+	 * comparison never fires; it is kept so a board that does match is
+	 * given the threshold the vendor stack would have given it.
+	 */
+	hwid = mca_get_hwid_info();
+	if (hwid && hwid->platform_version == 1 && hwid->major_version == 1 &&
+	    hwid->minor_version == 8)
+		aicl_thd = info->proc_data.vbat >= STATEGY_CHARGE_AICL_VBAT_TH_4P2V ?
+			   STATEGY_CHARGE_AICL_TH_4P5V :
+			   STATEGY_CHARGE_AICL_TH_4P1V;
 
 #ifdef CONFIG_FACTORY_BUILD
 	aicl_thd = STATEGY_CHARGE_AICL_TH_4P1V;
