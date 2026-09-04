@@ -509,7 +509,6 @@ static void mca_quick_charge_reset_charge_para(struct mca_quick_charge_info *inf
 	info->proc_data.sw_ocp_curr = 0;
 	mca_vote(info->chg_en_voter, "vbat_ovp", false, 1);
 	mca_vote(info->chg_en_voter, "lpd", false, 0);
-	cancel_delayed_work_sync(&info->float_vbat_drop_work);
 }
 
 static void mca_quick_charge_stop_charging(struct mca_quick_charge_info *info)
@@ -2112,7 +2111,6 @@ static int mca_quick_charge_select_volt_para(struct mca_quick_charge_info *info)
 
 #define QUICK_CHARGE_TERMATIN_TIMEOUT 5
 #define QUICK_CHARGE_VTERM_HYS	3
-#define QUICK_RAWSOC_HIGH_DONE_LIMIT  400
 static void mca_quick_charge_check_charge_done(struct mca_quick_charge_info *info)
 {
 	if (info->hardware_cv)
@@ -2126,7 +2124,6 @@ static void mca_quick_charge_check_charge_done(struct mca_quick_charge_info *inf
 	static int count;
 	int charging_done = 0, ffc_flag = 0, rawsoc = 0;
 	int force_full_status = 0;
-	bool high_rawsoc_exit = false;
 	struct mca_hwid_info *hwid = mca_get_hwid_info();
 	int raw_iterm = iterm;
 
@@ -2187,21 +2184,6 @@ static void mca_quick_charge_check_charge_done(struct mca_quick_charge_info *inf
 
 	mca_log_info("termination iterm: %d, vterm: %d, count:%d, force_full_status:%d, rsoc:%d\n",
 		     iterm, vterm, count, force_full_status, rawsoc);
-
-	if (info->rawsoc_swith_pmic_th) {
-		if (rawsoc >= info->rawsoc_swith_pmic_th) {
-			mca_log_err("switch buck: %d %d\n", rawsoc, info->rawsoc_swith_pmic_th);
-			high_rawsoc_exit = true;
-		}
-	}
-
-	if (!charging_done && high_rawsoc_exit) {
-		mca_log_err("high soc swith buck\n");
-		/* high ibat may causes vbat too high if switch to pmic and normal charging */
-		mca_vote(info->buck_charge_curr_voter, "qc_done", true, QUICK_RAWSOC_HIGH_DONE_LIMIT);
-		schedule_delayed_work(&info->float_vbat_drop_work, msecs_to_jiffies(5*60*1000));
-		info->proc_data.charge_flag = MCA_QUICK_CHG_STS_CHARGE_DONE;
-	}
 
 	/*
 	 * The shipped module ends on the count alone.  Ending as soon as the
@@ -2675,7 +2657,7 @@ static int mca_quick_charge_select_max_ibat(struct mca_quick_charge_info *info)
 	if (info->support_base_flip && proc_data->sw_ocp_curr)
 		cur_max = min(cur_max, proc_data->sw_ocp_curr);
 	/* will overcharge when cur_max < cur_in and terminate by cp. */
-	if (!info->rawsoc_swith_pmic_th && !info->hardware_cv)
+	if (!info->hardware_cv)
 		cur_max = max(cur_max, cur_min);
 
 	if (info->proc_data.adp_type == XM_CHARGER_TYPE_PPS && !info->is_eu_model) {
@@ -3595,15 +3577,6 @@ static void mca_quick_charge_vfc_work(struct work_struct *work)
 	strategy_quickchg_update_cp_fsw(info, fsw_target);
 
 	schedule_delayed_work(&info->vfc_work, msecs_to_jiffies(MCA_QUICK_CHG_VFC_INTERVAL));
-}
-
-static void mca_quick_charge_fvbat_drop_work(struct work_struct *work)
-{
-	struct mca_quick_charge_info *info =  container_of(work,
-		struct mca_quick_charge_info, float_vbat_drop_work.work);
-
-	mca_vote(info->buck_charge_curr_voter, "qc_done", false, 0);
-	mca_log_info("release buck chg curr limit\n");
 }
 
 /*
@@ -4653,7 +4626,6 @@ static noinline int mca_quick_charge_parse_dt(struct mca_quick_charge_info *info
 	(void)mca_parse_dts_u32(node, "pps_taper_vol_hys", &info->pps_taper_vol_hys,
 		MCA_QUICK_CHG_PPS_TAPER_HYS);
 	(void)mca_parse_dts_u32(node, "hardware_cv", &info->hardware_cv, 0);
-	(void)mca_parse_dts_u32(node, "rawsoc_swith_pmic_th", &info->rawsoc_swith_pmic_th, 0);
 	(void)mca_parse_dts_u32(node, "support_curr_monitor", &info->support_curr_monitor, 0);
 	(void)mca_parse_dts_u32(node, "curr_monitor_time_s", &info->curr_monitor_time_s, 0);
 	(void)mca_parse_dts_u32(node, "cp_switch_pmic_th", &info->cp_switch_pmic_th,
@@ -5738,7 +5710,6 @@ static int mca_quick_charge_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&info->monitor_work, mca_quick_charge_monitor_work);
 	INIT_DELAYED_WORK(&info->pps_ptf_work, mca_quick_charge_pps_ptf_work);
 	INIT_DELAYED_WORK(&info->vfc_work, mca_quick_charge_vfc_work);
-	INIT_DELAYED_WORK(&info->float_vbat_drop_work, mca_quick_charge_fvbat_drop_work);
 
 	(void)mca_strategy_ops_register(STRATEGY_FUNC_TYPE_QUICK_CHARGE,
 		mca_quick_charge_process_event, mca_quick_charge_get_status, NULL, info);
@@ -5768,7 +5739,6 @@ static int mca_quick_charge_remove(struct platform_device *pdev)
 	cancel_delayed_work_sync(&info->monitor_work);
 	cancel_delayed_work_sync(&info->vfc_work);
 	cancel_delayed_work_sync(&info->pps_ptf_work);
-	cancel_delayed_work_sync(&info->float_vbat_drop_work);
 
 	return 0;
 }

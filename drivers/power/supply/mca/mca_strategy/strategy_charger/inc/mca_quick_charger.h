@@ -553,7 +553,6 @@ struct mca_quick_charge_info {
 	struct delayed_work monitor_work;
 	struct delayed_work pps_ptf_work;
 	struct delayed_work vfc_work;
-	struct delayed_work float_vbat_drop_work;
 	struct notifier_block shutdown_notifier;
 	struct mca_votable *voter[MCA_QUICK_CHG_CH_MAX * CHG_MODE_MAX];
 	struct mca_votable *thermal_flip_voter;
@@ -625,7 +624,6 @@ struct mca_quick_charge_info {
 	int pps_taper_vol_hys;
 	int fc2_taper_timer;
 	int hardware_cv;
-	int rawsoc_swith_pmic_th;
 	int has_gbl_batt_para;
 	bool taper_done_no_retry;
 	bool pd_switch_to_pmic;

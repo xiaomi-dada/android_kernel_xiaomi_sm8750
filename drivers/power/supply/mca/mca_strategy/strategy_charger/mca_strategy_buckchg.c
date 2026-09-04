@@ -677,7 +677,6 @@ static void strategy_buckchg_resume_buck_ichg_limit(struct strategy_buckchg_dev 
 
 	strategy_class_fg_ops_get_rsoc(&rawsoc);
 	if (rawsoc < BUCKCHG_OK_TO_HIGH_IBAT_RAWSOC_TH) {
-		mca_vote(info->charge_limit_voter, "qc_done", false, 0);
 	}
 }
 
@@ -723,7 +722,6 @@ static void strategy_buckchg_reset_charge_para(struct strategy_buckchg_dev *info
 	mca_vote(info->input_voltage_voter, "lpd", false, 0);
 	cancel_delayed_work_sync(&info->csd_pulse_process_work);
 	mca_vote(info->charge_limit_voter, "csd_pulse", false, 0);
-	mca_vote(info->charge_limit_voter, "qc_done", false, 0);
 	mca_vote(info->chg_enable_voter, "csd_pulse", false, STATEGY_CHARGE_DISENABLE);
 	/*
 	 * Both of these are cast while charging and neither is answered by

@@ -3836,7 +3836,6 @@ static int strategy_fg_ops_set_charging_done(void *data, bool charging_done)
 	mca_log_info("set charging_done: %d\n", charging_done);
 	if (charging_done) {
 		mca_vote(fg->en_voter, "term_recharge", true, 0);
-		mca_vote(fg->charge_limit_voter, "qc_done", false, 0);
 		fg->charging_done = true;
 		fg->recharging = false;
 		fg->lossless_recharge = false;
@@ -4340,7 +4339,6 @@ static void strategy_fg_power_absent(struct strategy_fg *info)
 
 	mca_vote(info->iterm_voter, "calibration", false, 0);
 	mca_vote(info->charge_limit_voter, "losslessRec", false, 0);
-	mca_vote(info->charge_limit_voter, "qc_done", false, 0);
 	info->recharging = false;
 	info->lossless_recharge = false;
 	info->power_present = false;
