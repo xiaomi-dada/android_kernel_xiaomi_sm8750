@@ -628,10 +628,6 @@ static int mca_wireless_quick_charge_select_max_ibat(struct mca_wireless_quick_c
 	if (info->proc_data.debug_qc_ichg > 0 && info->proc_data.debug_qc_ichg <= tx_adapter_max) {
 		cur_max = info->proc_data.debug_qc_ichg;
 		mca_log_err("wls debug fcc = %d\n", cur_max);
-		if (cur_max <= MCA_WLS_QUICK_CHG_EXIT_FCC) {
-			mca_log_err("fcc less than 2.2A, stop quick charging = %d\n", cur_max);
-			mca_wireless_quick_charge_stop_charging(info);
-		}
 		return cur_max;
 	}
 
