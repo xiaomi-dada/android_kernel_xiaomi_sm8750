@@ -4615,9 +4615,9 @@ static int nfg1000_read_flash_step(struct bq_fg_chip *bq, u32 addr, u8 *buf,
 	frame[0] = 0xaa;
 	frame[1] = NFG1000_READ_REG;
 	frame[2] = 0x04;
-	frame[3] = 0x04;
-	frame[4] = 0x04;
-	frame[5] = 0x04;
+	frame[3] = addr & 0xff;
+	frame[4] = (addr >> 8) & 0xff;
+	frame[5] = (addr >> 16) & 0xff;
 	frame[6] = 0;
 	frame[7] = GetCRC8(frame, 7);
 
