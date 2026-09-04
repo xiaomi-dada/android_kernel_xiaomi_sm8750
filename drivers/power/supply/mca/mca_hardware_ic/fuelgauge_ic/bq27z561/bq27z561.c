@@ -4989,9 +4989,90 @@ static int nfg1000_ota_program_step4_gauge_version(struct bq_fg_chip *bq)
 	return 0;
 }
 
+/* Attempts at the boot-loader unlock, and at the boot command itself. */
+#define NFG1000_BOOT_WRITE_RETRY	3
+#define NFG1000_BOOT_CMD_RETRY		5
+
+/* How long the gauge needs after the unlock before it acts on it. */
+#define NFG1000_BOOT_SETTLE_MS		50
+
+/*
+ * The gauge takes the address and the payload as two separate transfers and
+ * reads the wrong location if anything gets in between, so both go out under
+ * the one lock.
+ */
+static int fg_ota_write_block(struct bq_fg_chip *bq, u8 reg, u8 *buf, u8 len)
+{
+	u8 zero_addr[2] = { 0x00, 0x00 };
+	int ret;
+
+	mutex_lock(&bq->i2c_rw_lock);
+	ret = __fg_write_block(bq->client, 0x00, zero_addr, 2);
+	if (ret < 0)
+		mca_log_err("could not write zero_addr, ret=%d\n", ret);
+	else
+		ret = __fg_write_block(bq->client, reg, buf, len);
+	mutex_unlock(&bq->i2c_rw_lock);
+	usleep_range(2000, 2100);
+
+	return ret;
+}
+
+/*
+ * Put the gauge into its boot loader: unlock through AltManufacturerAccess,
+ * then send the boot command twice and read it back to confirm it took.
+ */
+static int nfg1000_ota_program_step1_enter_boot_load(struct bq_fg_chip *bq)
+{
+	u8 unlock[2] = { 0x00, 0x0f };		/* 0x0f00 */
+	u8 boot_cmd[3] = { 0x01, 0x22, 0x04 };	/* 0x042201 */
+	u8 readback = 0;
+	int ret = 0, i;
+
+	for (i = 0; i < NFG1000_BOOT_WRITE_RETRY; i++) {
+		ret = nfg1000_write(bq, bq->regs[BQ_FG_REG_ALT_MAC],
+				    unlock, 2);
+		msleep(NFG1000_BOOT_SETTLE_MS);
+		if (ret >= 0)
+			break;
+		mca_log_err("could not write alt_mac\n");
+	}
+	if (ret < 0)
+		mca_log_err("enter boot: write reg %x error!!\n",
+			    bq->regs[BQ_FG_REG_ALT_MAC]);
+
+	/* The unlock is not acted on until the gauge has had a moment. */
+	msleep(NFG1000_BOOT_SETTLE_MS);
+
+	for (i = 0; i < NFG1000_BOOT_CMD_RETRY; i++) {
+		ret = fg_ota_write_block(bq, 0x36, boot_cmd, 3);
+		if (ret >= 0)
+			break;
+		mca_log_err("could not write boot_cmd1\n");
+	}
+	if (ret < 0)
+		return ret;
+
+	ret = fg_ota_write_block(bq, 0x36, boot_cmd, 3);
+	if (ret < 0) {
+		mca_log_err("could not write boot_cmd2\n");
+		return ret;
+	}
+
+	mutex_lock(&bq->i2c_rw_lock);
+	ret = __fg_read_byte(bq->client, 0x3f, &readback);
+	mutex_unlock(&bq->i2c_rw_lock);
+	usleep_range(2000, 2100);
+	if (ret < 0) {
+		mca_log_err("could not read boot_cmd2\n");
+		return ret;
+	}
+
+	return 0;
+}
+
 static int nfg1000_update_APP(struct bq_fg_chip *bq)
 {
-	u8 cmd[4];
 
 	/*
 	 * Reflashing holds the bus for a long time.  Saying so lets every
@@ -5000,20 +5081,7 @@ static int nfg1000_update_APP(struct bq_fg_chip *bq)
 	 */
 	bq->ota_updating = true;
 
-	cmd[0] = 0x00; cmd[1] = 0x0f;
-	nfg1000_write(bq, 0x00, cmd, 2);
-	cmd[0] = 0x34; cmd[1] = 0x12;
-	nfg1000_write(bq, 0x00, cmd, 2);
-	cmd[0] = 0x34; cmd[1] = 0x12;
-	nfg1000_write(bq, 0x00, cmd, 2);
-	usleep_range(2000, 2100);
-
-	cmd[0] = 0x36; cmd[1] = 0x00; cmd[2] = 0x00;
-	nfg1000_write(bq, 0x36, cmd, 3);
-	usleep_range(2000, 2100);
-	nfg1000_write(bq, 0x36, cmd, 3);
-	usleep_range(2000, 2100);
-	if (nfg1000_status_ok(bq) < 0)
+	if (nfg1000_ota_program_step1_enter_boot_load(bq) < 0)
 		mca_log_err("update_APP: enter boot fail\n");
 
 	if (nfg1000_ota_program_step2_ShaAuth(bq) < 0)
