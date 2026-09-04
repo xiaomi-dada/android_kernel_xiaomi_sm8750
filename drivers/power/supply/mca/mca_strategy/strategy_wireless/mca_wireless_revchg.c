@@ -2342,7 +2342,36 @@ static const struct of_device_id match_table[] = {
 
 static int mca_wireless_revchg_remove(struct platform_device *pdev)
 {
+	struct mca_wireless_revchg *info = platform_get_drvdata(pdev);
+
 	strategy_wireless_rev_remove_group(&pdev->dev);
+
+	if (!info)
+		return 0;
+
+	/*
+	 * Safe to wait for these here: the handlers that close the charge
+	 * reach a cancel of their own work through
+	 * mca_wireless_rev_enable_reverse_charge(), but only from inside the
+	 * work, and each is guarded there.  remove() is not one of them.
+	 */
+	cancel_delayed_work_sync(&info->monitor_work);
+	cancel_delayed_work_sync(&info->reverse_charge_config_work);
+	cancel_delayed_work_sync(&info->tx_ping_timeout_work);
+	cancel_delayed_work_sync(&info->tx_transfer_timeout_work);
+	cancel_delayed_work_sync(&info->pen_place_err_check_work);
+	cancel_delayed_work_sync(&info->pen_data_handle_work);
+	cancel_delayed_work_sync(&info->enable_tx_work);
+	cancel_delayed_work_sync(&info->disable_tx_work);
+	cancel_delayed_work_sync(&info->fw_update_work);
+	cancel_delayed_work_sync(&info->poweron_update_work);
+	cancel_delayed_work_sync(&info->rev_update_to_boost_work);
+	cancel_delayed_work_sync(&info->rev_update_to_wire_work);
+	cancel_delayed_work_sync(&info->reverse_test_start_work);
+	cancel_delayed_work_sync(&info->reverse_test_stop_work);
+
+	g_wls_rev_info = NULL;
+
 	return 0;
 }
 
