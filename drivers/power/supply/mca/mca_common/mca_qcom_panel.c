@@ -32,8 +32,8 @@
 #include <mca/common/mca_panel.h>
 
 /* The display driver may probe well after this one. */
-#define MCA_PANEL_RETRY_MS	1000
-#define MCA_PANEL_RETRY_MAX	60
+#define MCA_PANEL_RETRY_MS	5000
+#define MCA_PANEL_RETRY_MAX	3
 
 struct mca_panel {
 	struct device		*dev;
@@ -143,21 +143,16 @@ static void mca_panel_register_panel_notifier_work(struct work_struct *work)
 {
 	struct mca_panel *mp = container_of(to_delayed_work(work),
 					    struct mca_panel, register_work);
+	struct drm_panel *panel;
 	void *cookie;
 
-	mp->panel = mca_panel_find(mp->dev);
-	if (IS_ERR(mp->panel)) {
-		mp->panel = NULL;
-		if (++mp->retry_count > MCA_PANEL_RETRY_MAX) {
-			pr_err("Failed to find active panel, rc=%d\n", -ENODEV);
-			return;
-		}
-		pr_debug("retry register panel notifier, retry_count = %d\n",
-			 mp->retry_count);
-		queue_delayed_work(system_wq, &mp->register_work,
-				   msecs_to_jiffies(MCA_PANEL_RETRY_MS));
-		return;
+	panel = mca_panel_find(mp->dev);
+	if (IS_ERR(panel)) {
+		pr_err("Failed to find active panel, rc=%d\n",
+		       (int)PTR_ERR(panel));
+		goto retry;
 	}
+	mp->panel = panel;
 
 	cookie = panel_event_notifier_register(PANEL_EVENT_NOTIFICATION_PRIMARY,
 					       PANEL_EVENT_NOTIFIER_CLIENT_BATTERY_CHARGER,
@@ -167,11 +162,27 @@ static void mca_panel_register_panel_notifier_work(struct work_struct *work)
 	if (IS_ERR_OR_NULL(cookie)) {
 		pr_err("Failed to register panel event notifier, rc=%d\n",
 		       (int)PTR_ERR(cookie));
-		return;
+		goto retry;
 	}
 
 	mp->cookie = cookie;
 	pr_debug("register panel notifier successful\n");
+	return;
+
+retry:
+	/*
+	 * Both failures share the one budget.  The panel driver may simply not
+	 * have probed yet, and either step can be the one that is early, so
+	 * a failure to register is worth another go just as much as a panel
+	 * that is not there to find.
+	 */
+	if (++mp->retry_count > MCA_PANEL_RETRY_MAX)
+		return;
+
+	pr_debug("retry register panel notifier, retry_count = %d\n",
+		 mp->retry_count);
+	queue_delayed_work(system_wq, &mp->register_work,
+			   msecs_to_jiffies(MCA_PANEL_RETRY_MS));
 }
 
 static int mca_panel_probe(struct platform_device *pdev)
