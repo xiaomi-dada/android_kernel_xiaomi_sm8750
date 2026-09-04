@@ -998,14 +998,26 @@ static void smart_charge_handle_bypass_chg(struct smart_charge_info *info)
 		info->bypass_active = 1;
 		fcc = info->bypass_high_lmt[info->bypass_temp_index].fcc;
 	} else {
-		info->bypass_active = 0;
-		smart_charge_check_bypass_status(info);
+		/*
+		 * Every other scene still gets a limit, the gentlest of the
+		 * three, rather than no bypass limiting at all.
+		 */
+		update_smart_bypass_temp_section(info, info->bypass_low_lmt,
+						 info->bypass_low_num);
+		info->bypass_active = 1;
+		fcc = info->bypass_low_lmt[info->bypass_temp_index].fcc;
 	}
 
 	if (fcc != 0 && fcc != info->last_bypass_fcc) {
 		mca_vote(info->smartchg_set_fcc_voter, "smart_bypass", true,
 			 fcc);
 		info->bypass_exit_flag = false;
+		/*
+		 * The vote can be answered by a callback that turns bypass
+		 * back off, so the flag is re-read rather than assumed.
+		 */
+		if (!info->bypass_active)
+			smart_charge_check_bypass_status(info);
 	}
 
 report:
