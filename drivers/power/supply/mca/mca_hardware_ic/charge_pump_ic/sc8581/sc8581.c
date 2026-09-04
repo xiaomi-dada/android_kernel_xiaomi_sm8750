@@ -978,15 +978,21 @@ static int sc8581_set_pmid2outuvp_th(int th, void *data)
 	return sc8581_set_key(chip, false);
 }
 
+/* The reading counts half degrees; what is reported is tenths. */
+#define SC8581_TDIE_STEP_DECI_C		5
+
 /**
  * ops_cp_get_tdie() - the pump's own temperature
- * @tdie: filled in with it
+ * @tdie: filled in with it, in tenths of a degree
  * @data: this driver's state
  *
- * This is read as two registers rather than through the ADC, because it is
- * the reading that decides whether to stop and the ADC may be off.
+ * Only the SC8585 carries these registers.  The other two parts answer on the
+ * same address without them, and are reported as zero rather than read.  This
+ * feeds the fault report sent when a pump shuts down on temperature, so what
+ * matters is that the pair of pumps can be told apart, not that either figure
+ * gates anything.
  *
- * Return: 0, or a negative error.
+ * Return: 0.  A failed read is reported as zero, as the shipped module does.
  */
 static int ops_cp_get_tdie(int *tdie, void *data)
 {
@@ -994,15 +1000,21 @@ static int ops_cp_get_tdie(int *tdie, void *data)
 	u8 hi = 0, lo = 0;
 	int rc;
 
-	rc = cp_read_byte(chip, SC8581_REG_TDIE_HI, &hi);
-	if (rc)
-		return rc;
+	*tdie = 0;
 
-	rc = cp_read_byte(chip, SC8581_REG_TDIE_LO, &lo);
-	if (rc)
-		return rc;
+	if (chip->chip_vendor == SC8585_VENDOR) {
+		rc = cp_read_byte(chip, SC8581_REG_TDIE_HI, &hi);
+		rc |= cp_read_byte(chip, SC8581_REG_TDIE_LO, &lo);
+		if (rc) {
+			mca_log_err("read tdie adc failed, ret=%d\n", rc);
+			return 0;
+		}
+	}
 
-	*tdie = (hi << 8) | lo;
+	*tdie = lo * SC8581_TDIE_STEP_DECI_C;
+
+	mca_log_info("%s byte_h: %02x, byte_l: %02x, tdie: %d\n",
+		     chip->log_tag, hi, lo, *tdie);
 
 	return 0;
 }
