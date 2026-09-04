@@ -2351,7 +2351,7 @@ static noinline int mca_get_cpmode_unrelated_fcc(struct mca_quick_charge_info *i
 #define MCA_QUICK_CHG_MODE_SWITCH_RETRY		10
 #define MCA_QUICK_CHG_MODE_SWITCH_VBUS_MAX	12000
 #define MCA_QUICK_CHG_MODE_SWITCH_FSW		480
-#define MCA_QUICK_CHG_MODE_SWITCH_VFC_MS	1250
+#define MCA_QUICK_CHG_MODE_SWITCH_VFC_MS	5000
 
 /* Whether a division's current window covers @curr. */
 static bool mca_cp_mode_covers(const struct cp_work_mode_unit *unit, int curr)

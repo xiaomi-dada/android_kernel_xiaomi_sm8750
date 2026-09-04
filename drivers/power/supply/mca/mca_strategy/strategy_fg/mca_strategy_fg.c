@@ -3108,7 +3108,7 @@ static void strategy_force_report_full_work(struct work_struct *work)
 }
 
 #define NVT1000_OTA_UPDATE_FLAG 0xAA5555AA
-#define NVT1000_OTA_MONITOR_INTERVAL 5000
+#define NVT1000_OTA_MONITOR_INTERVAL 20000
 #define NVT1000_OTA_SOC_THR 59
 #define NVT1000_OTA_TEMP_THR 100
 #define NVT1000_OTA_CURR_MIN 100

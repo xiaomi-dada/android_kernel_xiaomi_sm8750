@@ -76,7 +76,7 @@
 #define SUBPMIC_WAKE_MS			1000
 
 /* How long to wait before pushing the configuration across again. */
-#define SUBPMIC_SYNC_RETRY_MS		250
+#define SUBPMIC_SYNC_RETRY_MS		1000
 
 /* The ADSP reports voltages in microvolts; the stack works in millivolts. */
 #define UV_PER_MV			1000

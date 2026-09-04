@@ -49,7 +49,7 @@
 #define ANTIBURN_IDLE_TEMP_MAX		55000
 
 /* And how soon to take the next one after being told something changed. */
-#define ANTIBURN_KICK_DELAY_MS		250
+#define ANTIBURN_KICK_DELAY_MS		1000
 
 /*
  * A reading is only worth differentiating if enough time has passed since the

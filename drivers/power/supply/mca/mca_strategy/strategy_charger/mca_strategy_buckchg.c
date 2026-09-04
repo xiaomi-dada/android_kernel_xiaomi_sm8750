@@ -1006,7 +1006,7 @@ static const struct {
 };
 
 #define SOC_LIMIT_MAX_STEP	(ARRAY_SIZE(soc_limit_stepper_table) - 1)
-#define SOC_LIMIT_STEP_MS	1000
+#define SOC_LIMIT_STEP_MS	4000
 
 /* Reverse quick charge. */
 #define STRATEGY_BUCKCHG_REVCHG_BOARD_TEMP_MAX	401
