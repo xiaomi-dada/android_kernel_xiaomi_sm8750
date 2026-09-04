@@ -4457,6 +4457,10 @@ static int fg_toggle_co(struct bq_fg_chip *bq, u8 co_cmd, int expect, u8 *data)
 
 /* Marks a gauge that probe found wanting a new firmware image. */
 #define NFG1000_OTA_UPDATE_PENDING	0xAA5555AA
+/* Written across the image once a section has been programmed. */
+#define NFG1000_SECTION_MARKER		0xaaaaaaaa
+#define NFG1000_OTA_ATTEMPTS		3
+#define NFG1000_OTA_EXIT_SETTLE_MS	1500
 
 u8 sha_256_ramdom_data[32] = {
 	0x12, 0x12, 0xe3, 0x39, 0x36, 0x86, 0x49, 0xf0,
@@ -4685,7 +4689,7 @@ static noinline int nfg1000_ota_program_step5_update_gauge(struct bq_fg_chip *bq
 	if (ver < 0 || ver > 7)
 		return -1;
 
-	bq->nfg1000_section_marker = 0xaaaaaaaa;
+	bq->nfg1000_section_marker = NFG1000_SECTION_MARKER;
 
 	if (nfg1000_erase_flash_step(bq, 0x3400, 1) < 0) {
 		mca_log_err("failed earse flash step1\n");
@@ -5128,49 +5132,154 @@ out:
  * it still does.  This is an operation the stack calls when it has decided
  * the moment is right; it is not something the driver starts on its own.
  */
+/*
+ * The gauge refuses flash writes while it is sealed.  The four keys go to
+ * AltManufacturerAccess in order, spaced far enough apart for each to be
+ * taken, and the state is read back to confirm full access was reached.
+ * Only the first two writes are checked: a bus that cannot carry them will
+ * not carry the update either, while the last two are sent blind because
+ * the part stops acknowledging once it has accepted the pair before them.
+ *
+ * Untested: reproduced from the shipped module, and reached only when
+ * userspace asks for a gauge firmware update.
+ */
+#define NFG1000_UNSEAL_KEY_1	0x303b
+#define NFG1000_UNSEAL_KEY_2	0x8ab9
+#define NFG1000_UNSEAL_KEY_3	0xc32e
+#define NFG1000_UNSEAL_KEY_4	0x5947
+#define NFG1000_SEAL_CMD	0x0030
+#define NFG1000_SEAL_RETRY	3
+#define NFG1000_KEY_SETTLE_US	3000
+#define NFG1000_SEAL_ERR_MS	2000
+
+static int nfg1000_read_seal_state(struct bq_fg_chip *bq, int *state)
+{
+	u8 t_buf[4] = { 0 };
+	int ret;
+
+	/*
+	 * Takes the bus lock directly rather than through fg_i2c_lock(), which
+	 * spins on trylock and gives up the moment an update sets ota_updating.
+	 * This read brackets that update, so it waits like nfg1000_write() does.
+	 */
+	mutex_lock(&bq->i2c_rw_lock);
+	ret = __fg_mac_read_block(bq, FG_MCA_CMD_SEAL_STATE, t_buf,
+				  sizeof(t_buf));
+	mutex_unlock(&bq->i2c_rw_lock);
+	if (ret < 0)
+		return ret;
+
+	*state = t_buf[1] & SEAL_STATUS_MASK;
+
+	return 0;
+}
+
+static void nfg1000_ota_unseal_full_access(struct bq_fg_chip *bq)
+{
+	static const u16 keys[] = {
+		NFG1000_UNSEAL_KEY_1, NFG1000_UNSEAL_KEY_2,
+		NFG1000_UNSEAL_KEY_3, NFG1000_UNSEAL_KEY_4,
+	};
+	int state, ret, i, j;
+	u8 cmd[2];
+
+	for (i = 0; i < NFG1000_SEAL_RETRY; i++) {
+		for (j = 0; j < ARRAY_SIZE(keys); j++) {
+			cmd[0] = keys[j] & 0xff;
+			cmd[1] = keys[j] >> 8;
+			ret = nfg1000_write(bq, bq->regs[BQ_FG_REG_ALT_MAC],
+					    cmd, sizeof(cmd));
+			if (ret < 0 && j < 2) {
+				mca_log_err("write alt_mac%d fail\n", j + 1);
+				return;
+			}
+			usleep_range(NFG1000_KEY_SETTLE_US,
+				     NFG1000_KEY_SETTLE_US + 100);
+		}
+
+		ret = nfg1000_read_seal_state(bq, &state);
+		if (ret < 0) {
+			mca_log_err("could not read seal_state, ret=%d\n", ret);
+			msleep(NFG1000_SEAL_ERR_MS);
+			return;
+		}
+
+		if (state == SEAL_STATE_FA)
+			return;
+	}
+
+	mca_log_err("nfg1000 ota unseal fail\n");
+}
+
+/*
+ * Closing the part again matters more than opening it did: a gauge left in
+ * full access after an update stays writable to anything that can reach the
+ * bus, so this is attempted whether or not the update itself succeeded.
+ */
+static void nfg1000_ota_seal_full_access(struct bq_fg_chip *bq)
+{
+	u8 cmd[2] = { NFG1000_SEAL_CMD & 0xff, NFG1000_SEAL_CMD >> 8 };
+	int state, ret, i;
+
+	for (i = 0; i < NFG1000_SEAL_RETRY; i++) {
+		ret = nfg1000_write(bq, bq->regs[BQ_FG_REG_ALT_MAC],
+				    cmd, sizeof(cmd));
+		if (ret < 0) {
+			mca_log_err("write no_reg_data fail\n");
+			return;
+		}
+
+		ret = nfg1000_read_seal_state(bq, &state);
+		if (ret < 0) {
+			mca_log_err("could not read seal_state, ret=%d\n", ret);
+			msleep(NFG1000_SEAL_ERR_MS);
+			return;
+		}
+
+		if (state == SEAL_STATE_SEALED)
+			return;
+	}
+
+	mca_log_err("nfg1000 ota seal fail\n");
+}
+
 static noinline int nfg1000_ota_update_check(void *data, int flag)
 {
 	struct bq_fg_chip *bq = data;
-	u8 cmd[4];
 	int ret = 0, i;
 
 	if (bq->ota_update_pending != NFG1000_OTA_UPDATE_PENDING)
 		return 0;
 
-	if (nfg1000_update_judge(bq))
-		return 0;
+	if (!nfg1000_update_judge(bq)) {
+		nfg1000_ota_unseal_full_access(bq);
 
-	/*
-	 * The shipped module does something else here: it unseals the gauge
-	 * for full access first, writing 0x303b, 0x8ab9, 0xc32e and 0x5947 to
-	 * AltManufacturerAccess three milliseconds apart, then reading the
-	 * seal state back from MAC 0x54 and retrying the whole thing up to
-	 * three times before giving up.  This writes 0x0f00 to CONTROL
-	 * instead.  Which of the two the part actually wants is not something
-	 * that can be settled without its datasheet, and getting it wrong
-	 * during a flash is not worth guessing at, so this is left as it is
-	 * and noted here.
-	 */
-	cmd[0] = 0x00; cmd[1] = 0x0f;
-	nfg1000_write(bq, 0x00, cmd, 2);
-	usleep_range(2000, 2100);
+		for (i = 0; i < NFG1000_OTA_ATTEMPTS; i++) {
+			ret = nfg1000_update_APP(bq);
+			if (ret == 0)
+				break;
+			mca_log_err("ota update attempt %d fail\n", i);
+		}
 
-	for (i = 0; i < 3; i++) {
-		ret = nfg1000_update_APP(bq);
-		if (ret == 0)
-			break;
-		mca_log_err("ota update attempt %d fail\n", i);
-		nfg1000_ota_program_step7_ExitBoot(bq);
-		msleep(1500);
+		/*
+		 * A run that got as far as marking the section left the part
+		 * in the bootloader, and it has to be walked back out before
+		 * anything else can talk to it.
+		 */
+		if (bq->nfg1000_section_marker != NFG1000_SECTION_MARKER)
+			nfg1000_ota_program_step7_ExitBoot(bq);
+
+		msleep(NFG1000_OTA_EXIT_SETTLE_MS);
+		nfg1000_ota_seal_full_access(bq);
 	}
 
 	/*
-	 * Only a finished update clears the request.  Leaving it set after a
-	 * failure is what gets the next attempt, which is why the error paths
-	 * above return without touching it.
+	 * The request is answered once, whether or not the update took.  A
+	 * part that has failed three times running will fail a fourth, and
+	 * holding the flag turns that into a retry on every poll for as long
+	 * as the phone stays up.
 	 */
-	if (ret == 0)
-		bq->ota_update_pending = 0;
+	bq->ota_update_pending = 0;
 
 	return ret;
 }
