@@ -985,8 +985,15 @@ static __always_inline int strategy_wireless_get_max_power(struct strategy_wirel
 		return 0;
 }
 
+/* Wireless fast charge ceilings; the SC96281 sits a little below the rest. */
+#define WLS_FCC_20W_MA			4000
+#define WLS_FCC_20W_SC96281_MA		3800
+#define WLS_FCC_30W_MA			6000
+#define WLS_FCC_30W_SC96281_MA		5400
+
 static int strategy_wireless_adapter_handle(struct strategy_wireless_dev *info)
 {
+	u32 fcc;
 	mca_log_info("xm wls adapter handle:type[0x%02x],epp[%d]\n", info->proc_data.adapter_type, info->proc_data.epp);
 
 	if (!info->proc_data.fc_flag) {
@@ -1058,18 +1065,23 @@ static int strategy_wireless_adapter_handle(struct strategy_wireless_dev *info)
 		case ADAPTER_XIAOMI_PD:
 		case ADAPTER_ZIMI_CAR_POWER:
 			info->proc_data.pre_vout = EPP_PLUS_VOUT;
-			strategy_wireless_fcc_setting(info, true, 4000);
+			/* The SC96281 is held a little below the others. */
+			fcc = (info->project_vendor == WLS_CHIP_VENDOR_SC96281) ?
+				WLS_FCC_20W_SC96281_MA : WLS_FCC_20W_MA;
+			strategy_wireless_fcc_setting(info, true, fcc);
 			info->proc_data.qc_enable = true;
-			info->proc_data.wireless_power.max_fcc = 4000;
+			info->proc_data.wireless_power.max_fcc = fcc;
 			info->proc_data.qc_type = ADP_ICON_TYPE_FLASH;
 			mca_log_info("[xiaomi]20W adapter set fcc as requested\n");
 			break;
 		case ADAPTER_XIAOMI_PD_40W:
 		case ADAPTER_VOICE_BOX:
 			info->proc_data.pre_vout = EPP_PLUS_VOUT;
-			strategy_wireless_fcc_setting(info, true, 6000);
+			fcc = (info->project_vendor == WLS_CHIP_VENDOR_SC96281) ?
+				WLS_FCC_30W_SC96281_MA : WLS_FCC_30W_MA;
+			strategy_wireless_fcc_setting(info, true, fcc);
 			info->proc_data.qc_enable = true;
-			info->proc_data.wireless_power.max_fcc = 6000;
+			info->proc_data.wireless_power.max_fcc = fcc;
 			info->proc_data.qc_type = ADP_ICON_TYPE_SUPER;
 			mca_log_info("[xiaomi]30W adapter set fcc as requested\n");
 			break;
