@@ -508,6 +508,7 @@ static int mca_buckchg_jeita_update(struct mca_buckchg_jeita_dev *jeita)
 	int temp, vbat, fastcharge;
 	int size, index, curr, volt_index;
 	int hys_affect = 0;
+	int fcc;
 	int ret;
 
 	ret = strategy_class_fg_ops_get_temperature(&temp);
@@ -604,10 +605,16 @@ static int mca_buckchg_jeita_update(struct mca_buckchg_jeita_dev *jeita)
 		     fastcharge, row->vterm, row->iterm, jeita->vterm,
 		     jeita->smartchg_data.delta_fv, hys_affect);
 
-	mca_vote(jeita->fcc_voter, JEITA_VOTER, true,
-		 curr - jeita->smartchg_data.delta_ichg);
+	fcc = curr - jeita->smartchg_data.delta_ichg;
+
+	mca_vote(jeita->fcc_voter, JEITA_VOTER, true, fcc);
 	mca_vote(jeita->iterm_voter, JEITA_VOTER, true, row->iterm);
-	mca_vote(jeita->en_voter, JEITA_VOTER, true, 1);
+	/*
+	 * A band that allows no current is a band that should not be charging
+	 * in, so the enable follows the current rather than being held on and
+	 * leaving the zero to be enforced by the limit alone.
+	 */
+	mca_vote(jeita->en_voter, JEITA_VOTER, true, fcc != 0);
 
 	return 0;
 }
