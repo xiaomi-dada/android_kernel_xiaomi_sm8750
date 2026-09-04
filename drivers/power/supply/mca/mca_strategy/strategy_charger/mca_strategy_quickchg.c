@@ -4660,9 +4660,9 @@ static noinline int mca_quick_charge_parse_dt(struct mca_quick_charge_info *info
 
 	if (mca_parse_dts_u32_array(node, "cur_max_threshold",
 				    (u32 *)info->cur_max_threshold, 3)) {
-		info->cur_max_threshold[0] = MCA_QUICK_CHG_CUR_MAX_TH_DEFAULT;
-		info->cur_max_threshold[1] = MCA_QUICK_CHG_CUR_MAX_TH_DEFAULT;
-		info->cur_max_threshold[2] = MCA_QUICK_CHG_CUR_MAX_TH_DEFAULT;
+		info->cur_max_threshold[0] = MCA_QUICK_CHG_CUR_MAX_TH_DEFAULT_0;
+		info->cur_max_threshold[1] = MCA_QUICK_CHG_CUR_MAX_TH_DEFAULT_1;
+		info->cur_max_threshold[2] = MCA_QUICK_CHG_CUR_MAX_TH_DEFAULT_2;
 	}
 	mca_log_info("cur_max_threshold %d %d %d\n", info->cur_max_threshold[0],
 		info->cur_max_threshold[1], info->cur_max_threshold[2]);
