@@ -4669,19 +4669,19 @@ static noinline int mca_quick_charge_parse_dt(struct mca_quick_charge_info *info
 
 	if (mca_parse_dts_u32_array(node, "ibus_threshold",
 				    (u32 *)info->ibus_threshold, 3)) {
-		info->ibus_threshold[0] = MCA_QUICK_CHG_IBUS_TH_PMIH_DEFAULT;
-		info->ibus_threshold[1] = MCA_QUICK_CHG_IBUS_TH_PMIH_DEFAULT;
-		info->ibus_threshold[2] = MCA_QUICK_CHG_IBUS_TH_PMIH_DEFAULT;
+		info->ibus_threshold[0] = MCA_QUICK_CHG_IBUS_TH_PMIH_DEFAULT_0;
+		info->ibus_threshold[1] = MCA_QUICK_CHG_IBUS_TH_PMIH_DEFAULT_1;
+		info->ibus_threshold[2] = MCA_QUICK_CHG_IBUS_TH_PMIH_DEFAULT_2;
 	}
 	mca_log_info("ibus_threshold %d %d %d\n", info->ibus_threshold[0],
 		info->ibus_threshold[1], info->ibus_threshold[2]);
 
 	if (mca_parse_dts_u32_array(node, "pmih_fcc_value",
 				    (u32 *)info->pmih_fcc_value, 4)) {
-		info->pmih_fcc_value[0] = MCA_QUICK_CHG_PMIH_FCC_DEFAULT;
-		info->pmih_fcc_value[1] = MCA_QUICK_CHG_PMIH_FCC_DEFAULT;
-		info->pmih_fcc_value[2] = MCA_QUICK_CHG_PMIH_FCC_DEFAULT;
-		info->pmih_fcc_value[3] = MCA_QUICK_CHG_PMIH_FCC_DEFAULT;
+		info->pmih_fcc_value[0] = MCA_QUICK_CHG_PMIH_FCC_DEFAULT_0;
+		info->pmih_fcc_value[1] = MCA_QUICK_CHG_PMIH_FCC_DEFAULT_1;
+		info->pmih_fcc_value[2] = MCA_QUICK_CHG_PMIH_FCC_DEFAULT_2;
+		info->pmih_fcc_value[3] = MCA_QUICK_CHG_PMIH_FCC_DEFAULT_3;
 	}
 	mca_log_info("pmih_fcc_value %d %d %d %d\n", info->pmih_fcc_value[0],
 		info->pmih_fcc_value[1], info->pmih_fcc_value[2],
