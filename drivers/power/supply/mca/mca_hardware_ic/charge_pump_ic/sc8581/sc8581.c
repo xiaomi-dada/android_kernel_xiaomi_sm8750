@@ -1459,6 +1459,21 @@ static int sc8581_dump_important_regs(struct sc8581_device *chip)
 			continue;
 
 		mca_log_err("%s\n", sc8581_faults[i].name);
+
+		/*
+		 * A thermal shutdown is reported with the die temperature that
+		 * caused it: the part has already stopped by the time anyone
+		 * reads this, so the reading has to travel with the event.
+		 */
+		if (sc8581_faults[i].event == MCA_EVENT_CP_TSHUT_FLAG) {
+			int tdie = 0;
+
+			cp_get_adc_data(chip, ADC_TDIE, &tdie);
+			mca_event_block_notify(MCA_EVENT_TYPE_CP_INFO,
+					       sc8581_faults[i].event, &tdie);
+			continue;
+		}
+
 		mca_event_block_notify(MCA_EVENT_TYPE_CP_INFO,
 				       sc8581_faults[i].event, NULL);
 	}
