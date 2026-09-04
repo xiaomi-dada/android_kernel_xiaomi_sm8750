@@ -2644,12 +2644,36 @@ static int set_verify_digest(struct bq_fg_chip *bq, u8 *rand_num)
 	return 0;
 }
 
+/*
+ * A lifetime block that does not come back is worth asking for again: this
+ * runs on a poll, the data is cumulative, and a bus that was busy once is
+ * usually free a moment later.
+ */
+#define FG_LIFETIME_READ_ATTEMPTS	2
+
+static int fg_read_lifetime_block(struct bq_fg_chip *bq, u16 cmd, u8 *buf,
+				  const char *name)
+{
+	int ret = -1;
+	int i;
+
+	for (i = 0; i < FG_LIFETIME_READ_ATTEMPTS; i++) {
+		ret = fg_mac_read_block(bq, cmd, buf, 32);
+		if (ret >= 0)
+			return ret;
+		mca_log_info("the address %s is error, retry:%d.\n", name, i + 1);
+	}
+
+	return ret;
+}
+
 static void fg_update_lifetime_data(struct bq_fg_chip *bq)
 {
 	int ret;
 	u8 t_buf[40] = { 0 };
 
-	ret = fg_mac_read_block(bq, FG_MAC_CMD_LIFETIME1, t_buf, 32);
+	ret = fg_read_lifetime_block(bq, FG_MAC_CMD_LIFETIME1, t_buf,
+				     "FG_MAC_CMD_LIFETIME1");
 	if (ret < 0)
 		return;
 
@@ -2693,7 +2717,8 @@ static void fg_update_lifetime_data(struct bq_fg_chip *bq)
 	case MPC7021:
 		break;
 	default:
-		ret = fg_mac_read_block(bq, FG_MAC_CMD_LIFETIME3, t_buf, 32);
+		ret = fg_read_lifetime_block(bq, FG_MAC_CMD_LIFETIME3, t_buf,
+					     "FG_MAC_CMD_LIFETIME3");
 		if (ret < 0)
 			return;
 
