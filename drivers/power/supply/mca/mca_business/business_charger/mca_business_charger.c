@@ -1732,12 +1732,15 @@ static int business_charger_event_thread(void *args)
 	business_charger_process_online_change(charger, MCA_EVENT_USB_CONNECT);
 	business_charger_process_wireless_online_change(charger, MCA_EVENT_WIRELESS_CONNECT);
 
-	while (1) {
+	while (!kthread_should_stop()) {
 		wait_event_interruptible(charger->wait_que,
-			(charger->thread_active == BUSINESS_CHARGER_THREAD_ACTIVE));
+			charger->thread_active == BUSINESS_CHARGER_THREAD_ACTIVE ||
+			kthread_should_stop());
+		if (kthread_should_stop())
+			break;
 		charger->thread_active = 0;
 		business_charger_process_event(charger);
-	};
+	}
 	return 0;
 }
 
@@ -1969,7 +1972,12 @@ static int business_charger_probe(struct platform_device *pdev)
 	charger->online_wake_lock = wakeup_source_register(charger->dev, "charger_wakelock");
 	if (!charger->online_wake_lock)
 		mca_log_err("reg wakelock failed\n");
-	kthread_run(business_charger_event_thread, charger, "charger_event_thread");
+	charger->event_task = kthread_run(business_charger_event_thread, charger,
+					  "charger_event_thread");
+	if (IS_ERR(charger->event_task)) {
+		mca_log_err("failed to start charger event thread\n");
+		charger->event_task = NULL;
+	}
 	if (business_charger_sysfs_create_group(charger))
 		mca_log_err("create sysfs failed\n");
 #ifdef CONFIG_DEBUG_FS
@@ -2006,7 +2014,30 @@ reg_notify_fail2:
 
 static int business_charger_remove(struct platform_device *pdev)
 {
+	struct business_charger *charger = platform_get_drvdata(pdev);
+
 	business_charger_sysfs_remove_group(&pdev->dev);
+
+	if (!charger)
+		return 0;
+
+	/*
+	 * The event thread runs code in this module and holds charger, which
+	 * is devm memory freed once this returns, so it has to be stopped
+	 * before either goes away.
+	 */
+	if (charger->event_task) {
+		kthread_stop(charger->event_task);
+		charger->event_task = NULL;
+	}
+
+	cancel_delayed_work_sync(&charger->delay_report_status_work);
+	cancel_delayed_work_sync(&charger->delay_enable_rx_work);
+	cancel_delayed_work_sync(&charger->delay_rerun_cp_vusb_work);
+	cancel_delayed_work_sync(&charger->pmic_init_done_notify_work);
+	cancel_delayed_work_sync(&charger->report_quick_charge_type_work);
+	cancel_delayed_work_sync(&charger->reset_rx_work);
+
 	return 0;
 }
 

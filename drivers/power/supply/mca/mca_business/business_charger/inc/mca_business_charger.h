@@ -79,6 +79,7 @@ struct business_charger {
 	struct list_head header;
 	spinlock_t list_lock;
 	wait_queue_head_t wait_que;
+	struct task_struct *event_task;
 	struct wakeup_source *online_wake_lock;
 	struct delayed_work delay_report_status_work;
 	struct delayed_work delay_enable_rx_work;
