@@ -754,7 +754,6 @@ static int mca_quick_charge_select_cur_work_mode(struct mca_quick_charge_info *i
 	int index = 0;
 	int adp_index;
 	int adp_mode;
-	int zimi_cypress_flag = 0;
 	struct adapter_power_cap *cap_info;
 
 	for (i = 0; i < ADAPTER_CAP_MAX_NR; i++) {
@@ -828,19 +827,9 @@ static int mca_quick_charge_select_cur_work_mode(struct mca_quick_charge_info *i
 	info->proc_data.max_power = (info->proc_data.max_adp_volt *
 				     info->proc_data.max_adp_curr) / 1000000;
 
-	(void)protocol_class_pd_get_zimi_cypress_flag(TYPEC_PORT_0, &zimi_cypress_flag);
-	if (zimi_cypress_flag == 1 && info->proc_data.min_adp_volt != info->proc_data.max_adp_volt)
-		info->proc_data.max_adp_volt -= MCA_ZIMI_CYPRESS_HYS_MV;
-
-	if (info->proc_data.adp_type == XM_CHARGER_TYPE_PPS && !zimi_cypress_flag
-		&& info->proc_data.min_adp_volt != info->proc_data.max_adp_volt
-		&& info->proc_data.max_adp_volt > MCA_PPS_MAX_VOLT)
-		info->proc_data.max_adp_volt -= MCA_THIRD_PARTY_PPS_HYS_MV;
-
-	mca_log_info("min_adp_volt: %d, max_adp_volt: %d, max_adp_curr: %d, max_power: %d, zimi_cypress_flag: %d\n",
+	mca_log_info("min_adp_volt: %d, max_adp_volt: %d, max_adp_curr: %d, max_power: %d\n",
 		info->proc_data.min_adp_volt, info->proc_data.max_adp_volt,
-		info->proc_data.max_adp_curr, info->proc_data.max_power,
-		zimi_cypress_flag);
+		info->proc_data.max_adp_curr, info->proc_data.max_power);
 
 	return 0;
 }
@@ -850,10 +839,13 @@ static int mca_quick_charge_select_cur_work_mode(struct mca_quick_charge_info *i
 
 static void mca_quick_charge_update_work_mode_para(struct mca_quick_charge_info *info)
 {
+	struct adapter_power_cap *cap_info;
 	int zimi_cypress_flag = 0;
+	int adp_index = -1;
 
 	switch (info->proc_data.work_mode) {
 	case MCA_QUICK_CHG_MODE_DIV_1:
+		adp_index = info->proc_data.adp_info_index[CHG_MODE_DIV1];
 		info->proc_data.ratio = MCA_QUICK_CHG_MODE_DIV_1;
 		info->proc_data.cur_cp_mode = CP_MODE_FORWARD_1_1;
 		info->proc_data.delta_volt = info->div_delta_volt[CHG_MODE_DIV1];
@@ -870,6 +862,7 @@ static void mca_quick_charge_update_work_mode_para(struct mca_quick_charge_info 
 		info->proc_data.ibus_compensation = info->ibus_compensation[CHG_MODE_DIV1];
 		break;
 	case MCA_QUICK_CHG_MODE_DIV_2:
+		adp_index = info->proc_data.adp_info_index[CHG_MODE_DIV2];
 		info->proc_data.cur_cp_mode = CP_MODE_FORWARD_2_1;
 		info->proc_data.ratio = MCA_QUICK_CHG_MODE_DIV_2;
 		info->proc_data.delta_volt = info->div_delta_volt[CHG_MODE_DIV2];
@@ -886,6 +879,7 @@ static void mca_quick_charge_update_work_mode_para(struct mca_quick_charge_info 
 		info->proc_data.ibus_compensation = info->ibus_compensation[CHG_MODE_DIV2];
 		break;
 	case MCA_QUICK_CHG_MODE_DIV_4:
+		adp_index = info->proc_data.adp_info_index[CHG_MODE_DIV4];
 		info->proc_data.cur_cp_mode = CP_MODE_FORWARD_4_1;
 		info->proc_data.ratio = MCA_QUICK_CHG_MODE_DIV_4;
 		info->proc_data.delta_volt = info->div_delta_volt[CHG_MODE_DIV4];
@@ -903,6 +897,18 @@ static void mca_quick_charge_update_work_mode_para(struct mca_quick_charge_info 
 		break;
 	default:
 		break;
+	}
+
+	/*
+	 * The ceiling is taken from the adapter's own table on every pass
+	 * rather than carried over from the last one, so the step below is
+	 * always measured against the advertised figure and cannot compound.
+	 */
+	if (adp_index >= 0) {
+		cap_info = &info->proc_data.adp_info[adp_index].cap_info;
+		info->proc_data.max_adp_curr = cap_info->max_current;
+		info->proc_data.min_adp_volt = cap_info->min_voltage;
+		info->proc_data.max_adp_volt = cap_info->max_voltage;
 	}
 
 	/*
