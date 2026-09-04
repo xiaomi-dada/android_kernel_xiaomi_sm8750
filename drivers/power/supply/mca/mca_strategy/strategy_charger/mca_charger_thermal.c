@@ -624,16 +624,16 @@ mca_wireless_charger_thermal_handle_limit(struct mca_thermal_info *chip)
 		mca_log_err("set wireless thermal remove: %d\n", 0);
 	}
 
-	for (i = 0; i < THERMAL_MODE_WIRELESS_MAX; i++)
+	/*
+	 * A vote that came out the same as last time does not re-run its own
+	 * election, so each is run here: a level that resolved to an unchanged
+	 * limit still has to reach the receiver.
+	 */
+	for (i = 0; i < THERMAL_MODE_WIRELESS_MAX; i++) {
 		mca_vote(chip->wireless_voter[i], MCA_WIRELESS_THERMAL_VOTER,
 			 !!limit[i], limit[i]);
-
-	/*
-	 * The wireless input election is what decides how much the receiver
-	 * asks for, and it is not re-run by a vote that did not change: run
-	 * it here so a level that came out the same still takes effect.
-	 */
-	mca_rerun_election(chip->wireless_voter[THERMAL_MODE_WIRELESS_BPP_IN]);
+		mca_rerun_election(chip->wireless_voter[i]);
+	}
 }
 
 /*
