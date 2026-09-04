@@ -842,6 +842,21 @@ static int sc8581_set_default_fsw(void *data)
 	return sc8581_set_fsw(SC8581_FSW_DEFAULT_KHZ, data);
 }
 
+/*
+ * The status register is laid out the other way round from the order the
+ * class enumerates these in: the first status it names sits in the top bit.
+ * SC8581_VUSB_PRESENT being bit 0 while VUSB_PRESENT_STAT is the last of the
+ * six is the same statement from the other end.
+ */
+static const u8 sc8581_int_stat_bit[] = {
+	[VOUT_OK_REV_STAT]  = 5,
+	[VOUT_OK_CHG_STAT]  = 4,
+	[VOUT_INSERT_STAT]  = 3,
+	[VBUS_PRESENT_STAT] = 2,
+	[VWPC_PRESENT_STAT] = 1,
+	[VUSB_PRESENT_STAT] = 0,
+};
+
 static int ops_cp_get_int_stat(int stat, bool *val, void *data)
 {
 	struct sc8581_device *chip = data;
@@ -849,7 +864,14 @@ static int ops_cp_get_int_stat(int stat, bool *val, void *data)
 	int rc;
 
 	rc = cp_read_byte(chip, SC8581_REG_INT_STAT, &reg);
-	*val = !!(reg & BIT(stat));
+
+	if (stat < 0 || stat >= ARRAY_SIZE(sc8581_int_stat_bit))
+		*val = false;
+	else
+		*val = !!(reg & BIT(sc8581_int_stat_bit[stat]));
+
+	if (rc)
+		mca_log_info("failed get int stat %d\n", stat);
 
 	return rc;
 }
