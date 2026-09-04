@@ -709,7 +709,12 @@ mca_charger_thermal_sic_initial_chg_curr(struct mca_thermal_info *chip)
 		return;
 	}
 
-	if (chip->real_type <= XM_CHARGER_TYPE_HVDCP3) {
+	/*
+	 * Every Quick Charge type belongs here, not just the first two: a
+	 * QC3 B or 3+ adapter has no PD power to report, so asking one leaves
+	 * sic_init_fcc at zero and update_chg_curr declines the update.
+	 */
+	if (chip->real_type <= XM_CHARGER_TYPE_HVDCP3P5) {
 		ctrl->sic_init_fcc = MCA_THERMAL_SIC_DEFAULT_FCC;
 		mca_charger_thermal_update_chg_curr(chip);
 		if (chip->usb_online)
