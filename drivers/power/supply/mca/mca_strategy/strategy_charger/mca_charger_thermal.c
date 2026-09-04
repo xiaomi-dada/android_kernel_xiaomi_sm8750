@@ -560,8 +560,14 @@ mca_wireless_charger_thermal_handle_limit(struct mca_thermal_info *chip)
 
 	level = ctrl->cur_level;
 
+	/*
+	 * A magnetic case on a pad that is not itself magnetic sits between
+	 * the coils, which is the combination the magnet table describes; a
+	 * proper magnetic pad couples as it was measured to and keeps the
+	 * ordinary one.  The two sysfs entries below gate on the same test.
+	 */
 	if (chip->support_mag_wls_thermal && chip->use_magnet &&
-	    chip->use_magnet_tx) {
+	    !chip->use_magnet_tx) {
 		level = ctrl->magnet_limit_level;
 		mca_log_err("thermal_levle %d\n", level);
 	}
