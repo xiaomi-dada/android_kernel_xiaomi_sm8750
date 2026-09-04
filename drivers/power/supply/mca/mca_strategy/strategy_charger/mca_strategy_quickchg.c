@@ -4484,9 +4484,9 @@ static void mca_quick_charge_parse_chg_mode_info(struct device_node *node,
 	 */
 	ret = mca_parse_dts_u32_array(node, "again_multi_ibus_th", idata, CHG_MODE_MAX);
 	if (ret) {
-		info->again_multi_ibus_th[CHG_MODE_DIV1] = MCA_QUICK_CHG_IBUS_TH_DEFAULT;
-		info->again_multi_ibus_th[CHG_MODE_DIV2] = MCA_QUICK_CHG_IBUS_TH_DEFAULT;
-		info->again_multi_ibus_th[CHG_MODE_DIV4] = MCA_QUICK_CHG_IBUS_TH_DEFAULT;
+		info->again_multi_ibus_th[CHG_MODE_DIV1] = MCA_QUICK_CHG_AGAIN_IBUS_TH_DEFAULT;
+		info->again_multi_ibus_th[CHG_MODE_DIV2] = MCA_QUICK_CHG_AGAIN_IBUS_TH_DEFAULT;
+		info->again_multi_ibus_th[CHG_MODE_DIV4] = MCA_QUICK_CHG_AGAIN_IBUS_TH_DEFAULT;
 	} else {
 		memcpy(info->again_multi_ibus_th, idata, sizeof(idata));
 	}
