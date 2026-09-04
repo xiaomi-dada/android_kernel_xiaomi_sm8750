@@ -126,8 +126,20 @@ error:
 
 static int business_battery_remove(struct platform_device *pdev)
 {
-	//struct business_battery *battery = platform_get_drvdata(pdev);
+	struct business_battery *battery = g_mca_business_battery;
 
+	if (!battery)
+		return 0;
+
+	/*
+	 * batt_info_nb lives in devm memory that goes away once this returns,
+	 * and the power supply outlives the driver unless it is taken down
+	 * here.  The probe error path already unwinds the latter.
+	 */
+	mca_event_block_notify_unregister(MCA_EVENT_TYPE_BATTERY_INFO,
+					  &battery->batt_info_nb);
+	business_battery_psy_deinit(battery->batt_psy_info);
+	g_mca_business_battery = NULL;
 
 	return 0;
 }
