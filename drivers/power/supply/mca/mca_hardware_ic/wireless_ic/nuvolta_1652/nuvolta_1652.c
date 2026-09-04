@@ -3415,6 +3415,18 @@ static void nuvolta_1652_remove(struct i2c_client *client)
 {
 	struct nuvolta_1652_chg *chip = i2c_get_clientdata(client);
 
+	if (!chip)
+		return;
+
+	/*
+	 * These have to stop before the locks they take are destroyed and the
+	 * gpios they read are freed, so cancel them first.
+	 */
+	cancel_delayed_work_sync(&chip->interrupt_work);
+	cancel_delayed_work_sync(&chip->pg_detect_work);
+	cancel_delayed_work_sync(&chip->init_detect_work);
+	cancel_delayed_work_sync(&chip->hall_interrupt_work);
+
 	mutex_destroy(&chip->i2c_lock);
 	mutex_destroy(&chip->wireless_chg_int_lock);
 	mutex_destroy(&chip->data_transfer_lock);
