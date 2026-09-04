@@ -621,7 +621,6 @@
 #define SC8581_TSBAT_FLT1_MASK  0xFF
 #define SC8581_TSBAT_FLT1_SHIFT 0
 #define SC8581_TSBAT_FLT1_BASE  0
-#define SC8581_TSBAT_FLT1_LSB   19531
 /* Register 40h */
 #define SC8581_REG_40                 0x40
 #define SC8581_IBUS_RCP_DIS_MASK      0x80
