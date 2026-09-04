@@ -4631,10 +4631,15 @@ static noinline int mca_quick_charge_parse_dt(struct mca_quick_charge_info *info
 		100);
 	(void)mca_parse_dts_u32(node, "pps_taper_fcc_thr", &info->pps_taper_fcc_ma,
 		MCA_QUICK_CHG_QC_TAPER_FCC_THR_DEFAULT);
+	/*
+	 * The middle and high thresholds fall back to whatever the plain one
+	 * ended up as, so a device tree that moves that one carries the other
+	 * two with it rather than leaving them at the built-in value.
+	 */
 	(void)mca_parse_dts_u32(node, "pps_middle_taper_fcc_thr",
-		&info->pps_middle_taper_fcc_ma, 2500);
+		&info->pps_middle_taper_fcc_ma, info->pps_taper_fcc_ma);
 	(void)mca_parse_dts_u32(node, "pps_high_taper_fcc_thr", &info->pps_high_taper_fcc_ma,
-		MCA_QUICK_CHG_QC_TAPER_FCC_THR_DEFAULT);
+		info->pps_taper_fcc_ma);
 	(void)mca_parse_dts_u32(node, "qc3_taper_vol_hys", &info->qc3_taper_vol_hys,
 		MCA_QUICK_CHG_QC_TAPER_HYS_QC3B);
 	(void)mca_parse_dts_u32(node, "qc3p5_taper_vol_hys", &info->qc3p5_taper_vol_hys,
