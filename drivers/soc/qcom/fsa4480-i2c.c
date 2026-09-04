@@ -29,6 +29,19 @@
 #define FSA4480_DELAY_L_AGND    0x10
 #define FSA4480_RESET           0x1E
 
+/*
+ * A second switch part answers at the same address and reports this as its
+ * device id.  Its register map is not the FSA4480 one, so the defaults below
+ * are kept apart: writing the FSA4480 set to it programs the wrong registers.
+ */
+#define FSA4480_DEVICE_ID       0x00
+#define FSA4480_ALT_DEVICE_ID   0xF6
+#define FSA4480_ALT_UNLOCK      0x4E
+#define FSA4480_ALT_CTRL1       0x50
+#define FSA4480_ALT_CTRL2       0x51
+#define FSA4480_ALT_DELAY       0x12
+#define FSA4480_ALT_MISC        0x21
+
 struct fsa4480_priv {
 	struct regmap *regmap;
 	struct device *dev;
@@ -60,6 +73,20 @@ static const struct fsa4480_reg_val fsa_reg_i2c_defaults[] = {
 	{FSA4480_DELAY_L_MIC, 0x00},
 	{FSA4480_DELAY_L_SENSE, 0x00},
 	{FSA4480_DELAY_L_AGND, 0x09},
+	{FSA4480_SWITCH_SETTINGS, 0x98},
+};
+
+static const struct fsa4480_reg_val fsa_reg_i2c_defaults_alt[] = {
+	{FSA4480_ALT_UNLOCK, 0x8F},
+	{FSA4480_ALT_UNLOCK, 0x5A},
+	{FSA4480_ALT_CTRL2, 0x90},
+	{FSA4480_ALT_CTRL1, 0x45},
+	{FSA4480_DELAY_L_SENSE, 0x00},
+	{FSA4480_DELAY_L_AGND, 0x00},
+	{FSA4480_DELAY_L_MIC, 0x0B},
+	{FSA4480_DELAY_L_R, 0x0F},
+	{FSA4480_ALT_MISC, 0x0F},
+	{FSA4480_ALT_DELAY, 0x08},
 	{FSA4480_SWITCH_SETTINGS, 0x98},
 };
 
@@ -322,11 +349,20 @@ static void fsa4480_usbc_analog_work_fn(struct work_struct *work)
 
 static void fsa4480_update_reg_defaults(struct regmap *regmap)
 {
+	const struct fsa4480_reg_val *defaults = fsa_reg_i2c_defaults;
+	unsigned int count = ARRAY_SIZE(fsa_reg_i2c_defaults);
+	unsigned int id = 0;
 	u8 i;
 
-	for (i = 0; i < ARRAY_SIZE(fsa_reg_i2c_defaults); i++)
-		regmap_write(regmap, fsa_reg_i2c_defaults[i].reg,
-				   fsa_reg_i2c_defaults[i].val);
+	/* Which part is fitted is only known by asking it. */
+	regmap_read(regmap, FSA4480_DEVICE_ID, &id);
+	if (id == FSA4480_ALT_DEVICE_ID) {
+		defaults = fsa_reg_i2c_defaults_alt;
+		count = ARRAY_SIZE(fsa_reg_i2c_defaults_alt);
+	}
+
+	for (i = 0; i < count; i++)
+		regmap_write(regmap, defaults[i].reg, defaults[i].val);
 }
 
 static int fsa4480_probe(struct i2c_client *i2c)
