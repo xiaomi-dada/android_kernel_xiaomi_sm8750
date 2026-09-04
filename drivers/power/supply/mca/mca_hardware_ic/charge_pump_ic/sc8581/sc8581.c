@@ -183,7 +183,8 @@
 #define SC8581_SET_REVCHG_RETRY		10
 
 /* SC8581_REG_FSW: the switching frequency, in bits 6:3. */
-#define SC8581_FSW_MASK			GENMASK(6, 3)
+#define SC8581_FSW_MASK			GENMASK(7, 3)
+#define SC8585_FSW_MASK			GENMASK(6, 3)
 #define SC8581_FSW_SHIFT		3
 
 /* SC8581_REG_MODE: how the pump divides, in the low three bits. */
@@ -287,6 +288,8 @@ struct sc8581_cfg {
  * @max_khz:  the highest the part will switch at
  * @min_khz:  the lowest, which is also what its register counts from
  * @step_khz: what one register count is worth
+ * @mask:     the register field holding the count, which is not the same
+ *            width on every part
  *
  * Each part has its own window, so this is filled in once the part has said
  * which one it is rather than being fixed at build time.
@@ -295,6 +298,7 @@ struct sc8581_fsw_cfg {
 	u32	max_khz;
 	u32	min_khz;
 	u32	step_khz;
+	u32	mask;
 };
 
 /**
@@ -805,7 +809,7 @@ static int sc8581_set_fsw(int fsw, void *data)
 
 	mca_log_info("fsw: %d, val: %d\n", fsw, val);
 
-	return cp_update_bits(chip, SC8581_REG_FSW, SC8581_FSW_MASK,
+	return cp_update_bits(chip, SC8581_REG_FSW, chip->fsw_cfg.mask,
 			      val << SC8581_FSW_SHIFT);
 }
 
@@ -826,7 +830,7 @@ static int ops_cp_get_fsw(int *fsw, void *data)
 	 * comparing a count against a frequency.
 	 */
 	*fsw = chip->fsw_cfg.min_khz +
-	       ((val & SC8581_FSW_MASK) >> SC8581_FSW_SHIFT) *
+	       ((val & chip->fsw_cfg.mask) >> SC8581_FSW_SHIFT) *
 	       chip->fsw_cfg.step_khz;
 
 	return 0;
@@ -1387,10 +1391,12 @@ static int sc8581_init_device(struct sc8581_device *chip)
 			chip->fsw_cfg.max_khz = SC8585_FSW_MAX_KHZ;
 			chip->fsw_cfg.min_khz = SC8585_FSW_MIN_KHZ;
 			chip->fsw_cfg.step_khz = SC8585_FSW_STEP_KHZ;
+			chip->fsw_cfg.mask = SC8585_FSW_MASK;
 		} else {
 			chip->fsw_cfg.max_khz = SC8581_FSW_MAX_KHZ;
 			chip->fsw_cfg.min_khz = SC8581_FSW_MIN_KHZ;
 			chip->fsw_cfg.step_khz = SC8581_FSW_STEP_KHZ;
+			chip->fsw_cfg.mask = SC8581_FSW_MASK;
 		}
 
 		rc = sc8581_set_fsw(SC8581_FSW_DEFAULT_KHZ, chip);
