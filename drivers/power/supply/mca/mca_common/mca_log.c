@@ -315,7 +315,7 @@ static struct mca_sysfs_attr_info mca_log_sysfs_field_tbl[] = {
 			  max_buffer_num),
 	mca_sysfs_attr_ro(mca_log_sysfs, 0444, MCA_LOG_ATTR_DUMP_LOG_BUFF,
 			  dump_log_buff),
-	mca_sysfs_attr_rw(mca_log_sysfs, 0644, MCA_LOG_ATTR_WRITE_LOG,
+	mca_sysfs_attr_wo(mca_log_sysfs, 0200, MCA_LOG_ATTR_WRITE_LOG,
 			  write_log),
 	mca_sysfs_attr_rw(mca_log_sysfs, 0644, MCA_LOG_ATTR_CHARGE_BOOT_MODE,
 			  charge_boot_mode),
