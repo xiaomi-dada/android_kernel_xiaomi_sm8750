@@ -105,16 +105,23 @@ static void mca_panel_event_notifier_callback(enum panel_event_notifier_tag tag,
 }
 
 /* Return the panel among this node's phandles that DRM knows about. */
-static struct drm_panel *mca_panel_find(struct device *dev)
+static struct drm_panel *mca_panel_find(void)
 {
-	struct device_node *np = dev->of_node;
 	struct device_node *node;
 	struct drm_panel *panel;
 	int count, i;
 
-	node = of_find_node_by_name(np, "charge-screen");
-	if (!node)
-		node = np;
+	/*
+	 * Started from NULL so the whole tree is searched: of_find_node_by_name()
+	 * resumes the global walk after the node it is given, and it drops that
+	 * node's reference on the way past, which is not ours to drop when the
+	 * node handed in is the device's own.
+	 */
+	node = of_find_node_by_name(NULL, "charge-screen");
+	if (!node) {
+		pr_err("ERROR: Cannot find node with panel!\n");
+		return ERR_PTR(-ENODEV);
+	}
 
 	count = of_count_phandle_with_args(node, "panel", NULL);
 	if (count <= 0) {
@@ -146,7 +153,7 @@ static void mca_panel_register_panel_notifier_work(struct work_struct *work)
 	struct drm_panel *panel;
 	void *cookie;
 
-	panel = mca_panel_find(mp->dev);
+	panel = mca_panel_find();
 	if (IS_ERR(panel)) {
 		pr_err("Failed to find active panel, rc=%d\n",
 		       (int)PTR_ERR(panel));
