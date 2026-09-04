@@ -66,6 +66,7 @@
 #define SC8581_REG_TIMEOUT		0x0d
 #define SC8581_REG_MODE			0x0e
 #define SC8581_REG_GATE_STATUS		0x0f
+#define  SC8581_OVPGATE_STAT		BIT(7)
 #define SC8581_REG_INT_STAT		0x10
 #define  SC8581_VUSB_PRESENT		BIT(0)
 #define  SC8581_VBAT_PRESENT		BIT(3)
@@ -695,7 +696,7 @@ static int ops_cp_get_ovpgate_status(bool *status, void *data)
 	int rc;
 
 	rc = cp_read_byte(chip, SC8581_REG_GATE_STATUS, &val);
-	*status = !!val;
+	*status = !!(val & SC8581_OVPGATE_STAT);
 
 	return rc;
 }
@@ -866,9 +867,9 @@ static int ops_cp_get_errorhl_stat(int *stat, void *data)
 	if (rc)
 		return rc;
 
-	if (val & BIT(0))
+	if (val & SC8581_VBUS_ERRORLO_STAT)
 		*stat = CP_PMID_ERROR_LOW;
-	else if (val & BIT(1))
+	else if (val & SC8581_VBUS_ERRORHI_STAT)
 		*stat = CP_PMID_ERROR_HIGH;
 	else
 		*stat = CP_PMID_ERROR_OK;
