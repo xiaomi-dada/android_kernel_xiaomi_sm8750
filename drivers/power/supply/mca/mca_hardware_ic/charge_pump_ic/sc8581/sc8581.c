@@ -825,9 +825,20 @@ static int ops_cp_get_fsw(int *fsw, void *data)
 	int rc;
 
 	rc = cp_read_byte(chip, SC8581_REG_FSW, &val);
-	*fsw = (val & SC8581_FSW_MASK) >> SC8581_FSW_SHIFT;
+	if (rc)
+		return rc;
 
-	return rc;
+	/*
+	 * The register counts steps up from the bottom of the part's window,
+	 * which is what min_khz and step_khz describe and what the setter
+	 * undoes.  Handing the raw count back instead leaves the caller
+	 * comparing a count against a frequency.
+	 */
+	*fsw = chip->fsw_cfg.min_khz +
+	       ((val & SC8581_FSW_MASK) >> SC8581_FSW_SHIFT) *
+	       chip->fsw_cfg.step_khz;
+
+	return 0;
 }
 
 /*
