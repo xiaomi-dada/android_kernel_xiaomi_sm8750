@@ -181,6 +181,8 @@ struct mca_path_control {
 	bool				wireless_vdd_en;
 	struct path_control_scheme_cfg	control_scheme[PATH_CONTROL_ROLE_MAX];
 	struct path_control_condition_cfg control_path[PATH_CONTROL_PATH_MAX];
+	/* What each gate was last driven to, so an unchanged one is left be. */
+	int				gate_state[PATH_CONTROL_ROLE_MAX];
 };
 
 static struct mca_path_control *g_info;
@@ -326,12 +328,24 @@ static noinline int mca_path_control_handle_func(struct mca_path_control *chip,
 		int role = boost->gate_enable_info[j].control_gate_role;
 		bool enable = boost->gate_enable_info[j].control_gate_enable;
 
+		mca_log_info("gate[%d] ready to enable[%d]\n", role, enable);
+
+		/*
+		 * Driving a gate that is already where it should be costs a
+		 * regulator or GPIO operation and gains nothing, so each one
+		 * is only touched when the answer has actually changed.
+		 */
+		if (role < 0 || role >= PATH_CONTROL_ROLE_MAX)
+			continue;
+		if (chip->gate_state[role] == enable)
+			continue;
+
 		cfg = mca_path_control_find_scheme(chip, role);
 		if (!cfg || !cfg->control_enable_func)
 			continue;
 
-		mca_log_info("gate[%d] ready to enable[%d]\n", role, enable);
 		cfg->control_enable_func(role, enable);
+		chip->gate_state[role] = enable;
 	}
 
 	return 0;
