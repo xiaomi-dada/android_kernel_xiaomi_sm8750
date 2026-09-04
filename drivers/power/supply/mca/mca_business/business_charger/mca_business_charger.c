@@ -621,7 +621,6 @@ static void business_charger_process_online_change(struct business_charger *char
 	mca_strategy_func_process(STRATEGY_FUNC_TYPE_SMARTCHG, event, active_flag);
 	mca_strategy_func_process(STRATEGY_FUNC_TYPE_THERMAL, event, active_flag);
 	mca_strategy_func_process(STRATEGY_FUNC_TYPE_BMD, event, active_flag);
-	mca_strategy_func_process(STRATEGY_FUNC_TYPE_ANTIBURN, event, active_flag);
 	if (active_flag) {
 		mca_strategy_func_process(STRATEGY_FUNC_TYPE_BUCK_CHARGE,
 			MCA_EVENT_CHARGE_TYPE_CHANGE, charger->real_type);
@@ -661,7 +660,6 @@ static void business_charger_process_otg_change(struct business_charger *charger
 	 */
 	otg_en = (event == MCA_EVENT_BOOST_STS) ? true : false;
 	mca_log_info("otg_en: %d\n", otg_en);
-	mca_strategy_func_process(STRATEGY_FUNC_TYPE_ANTIBURN, event, otg_en);
 	mca_strategy_func_process(STRATEGY_FUNC_TYPE_BUCK_CHARGE, event, otg_en);
 }
 
@@ -670,10 +668,8 @@ static void business_charger_process_antiburn_change(struct business_charger *ch
 {
 	int antiburn = connector_antiburn_is_triggered();
 	int online = 0;
-	if (!antiburn)
-		mca_strategy_func_process(STRATEGY_FUNC_TYPE_ANTIBURN,
-					  MCA_EVENT_CID_STS, antiburn);
-	else {
+
+	if (antiburn) {
 		(void)mca_strategy_func_get_status(STRATEGY_FUNC_TYPE_BUCK_CHARGE,
 			STRATEGY_STATUS_TYPE_ONLINE, &online);
 		mca_log_debug("online:%d, bc12_a:%d\n", online, charger->bc12_active);
