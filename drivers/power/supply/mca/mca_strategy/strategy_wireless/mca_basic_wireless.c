@@ -2864,9 +2864,18 @@ static void strategy_wireless_process_soc_limit_change(int value, struct strateg
 		mca_vote(info->input_limit_voter, "soc_limit", true, soc_limit_stepper_table[cur_step].icl_value);
 		if (cur_step != SOC_LIMIT_MAX_STEP) {
 			mca_vote(info->chg_enable_voter, "soc_limit", false, 0);
+			mca_vote(info->force_vout_6v_voter, "soc_limit", false, 0);
 			schedule_delayed_work(&info->soc_limit_stepper_work, msecs_to_jiffies(4000));
-		} else
+		} else {
+			/*
+			 * The last step stops the charge outright, so there is
+			 * nothing left for the higher rail to carry: hold the
+			 * receiver at 6V rather than leave the pad driving a
+			 * link that is no longer taking current.
+			 */
+			mca_vote(info->force_vout_6v_voter, "soc_limit", true, 1);
 			mca_vote(info->chg_enable_voter, "soc_limit", true, 0);
+		}
 	}
 	mca_log_info("cur_step = %d\n", cur_step);
 }
