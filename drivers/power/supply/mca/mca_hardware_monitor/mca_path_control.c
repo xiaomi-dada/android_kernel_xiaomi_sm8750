@@ -881,6 +881,14 @@ static int mca_path_control_probe(struct platform_device *pdev)
 
 static int mca_path_control_remove(struct platform_device *pdev)
 {
+	struct mca_path_control *chip = platform_get_drvdata(pdev);
+
+	if (!chip)
+		return 0;
+
+	cancel_delayed_work_sync(&chip->update_status_work);
+	g_info = NULL;
+
 	return 0;
 }
 
