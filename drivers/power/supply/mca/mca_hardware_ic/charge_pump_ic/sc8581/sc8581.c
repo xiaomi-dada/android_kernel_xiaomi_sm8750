@@ -657,13 +657,30 @@ static int sc8581_enable_ovpgate(bool enable, void *data)
  * The same, for a caller that has already decided the gate is where it
  * wants it: asking again costs a bus transaction and a settle time each.
  */
+/*
+ * Three subsystems ask for this gate independently - OTG, reverse charging
+ * and the wireless path - and any one of them needing it shut has to outrank
+ * the others wanting it open.  Each is remembered by its own bit while it is
+ * asking, and the gate only opens again once none of them is.
+ */
 static int ops_cp_enable_ovpgate_with_check(int type_temp, bool enable,
 					   void *data)
 {
-	struct sc8581_device *chip = data;
+	static u32 ovp_type;
+	static bool ovp_enabled;
+	u32 bit = BIT(type_temp & 0x1f);
 
-	if (chip->ovpgate_en == enable)
-		return 0;
+	if (!enable) {
+		ovp_type |= bit;
+		if (!ovp_enabled)
+			return 0;
+	} else {
+		ovp_type &= ~bit;
+		if (!!ovp_type == !ovp_enabled)
+			return 0;
+	}
+
+	ovp_enabled = enable;
 
 	return sc8581_enable_ovpgate(enable, data);
 }
