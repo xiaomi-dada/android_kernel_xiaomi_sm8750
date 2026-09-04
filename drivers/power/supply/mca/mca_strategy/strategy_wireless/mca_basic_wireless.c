@@ -90,7 +90,14 @@ static int strategy_wireless_input_suspend(struct mca_votable *votable,
 
 static int strategy_wireless_set_rx_vout(struct strategy_wireless_dev *info, int vout)
 {
-	if (info->force_vout_6v)
+	/*
+	 * The bridge switch brings the rail down and waits for it to settle
+	 * before flipping the rectifier, so anything that raises it in that
+	 * window undoes the wait.  Hold at 6V until the switch is done; the
+	 * switch itself sets the voltage through the platform call and is not
+	 * held back by its own flag.
+	 */
+	if (info->force_vout_6v || info->in_switch_bridge)
 		return platform_class_wireless_set_vout(WIRELESS_ROLE_MASTER, 6000);
 	return platform_class_wireless_set_vout(WIRELESS_ROLE_MASTER, vout);
 }
