@@ -725,6 +725,15 @@ static void strategy_buckchg_reset_charge_para(struct strategy_buckchg_dev *info
 	mca_vote(info->charge_limit_voter, "csd_pulse", false, 0);
 	mca_vote(info->charge_limit_voter, "qc_done", false, 0);
 	mca_vote(info->chg_enable_voter, "csd_pulse", false, STATEGY_CHARGE_DISENABLE);
+	/*
+	 * Both of these are cast while charging and neither is answered by
+	 * anything on the way out, so they have to be released here: a held
+	 * recover_force_5v pins the input at five volts and a held cp_to_pmic
+	 * holds the termination voltage down, into the next charge session.
+	 */
+	mca_vote(info->input_voltage_voter, "recover_force_5v", false, 0);
+	mca_vote(info->vterm_voter, "cp_to_pmic", false,
+		 STATEGY_VTERM_DEFAULT_VALUE);
 	info->csd_flag = false;
 
 	/*xring system abnormal use default ibus and ibat 500mA */
