@@ -97,6 +97,18 @@
 #define JEITA_HOT_VOTER			"jeita-hot"
 #define JEITA_SWOCP_VOTER		"swocp"
 
+/* The gauge reports in microamps; the limits are in milliamps. */
+#define UA_PER_MA			1000
+
+/* Consecutive over-current samples before the vote is placed. */
+#define JEITA_SWOCP_DEBOUNCE		3
+
+/* How far the fast charge current is pulled down each time. */
+#define JEITA_SWOCP_STEP_MA		100
+
+/* How far under the limit the reading must come back before letting go. */
+#define JEITA_SWOCP_RELEASE_MA		500
+
 /* The elections this module takes part in. */
 #define JEITA_FLIP_FCC_VOTABLE		"flip_charge_curr"
 #define JEITA_EN_VOTABLE		"chg_enable"
@@ -730,6 +742,8 @@ static __always_inline int jeita_half_update(struct mca_buckchg_jeita_dev *jeita
  */
 static void mca_buckchg_base_jeita_update(struct mca_buckchg_jeita_dev *jeita)
 {
+	static unsigned int over_curr_count;
+	static bool swocp_engaged;
 	int curr, now_curr, effective_curr;
 	int ret;
 
@@ -753,11 +767,35 @@ static void mca_buckchg_base_jeita_update(struct mca_buckchg_jeita_dev *jeita)
 		     jeita->base_proc_data.temp_hys_en, now_curr,
 		     effective_curr);
 
-	if (now_curr > curr) {
+	/*
+	 * The gauge reports microamps and counts charge as negative, so the
+	 * reading has to come back to milliamps and be compared against the
+	 * negated limit.  One sample is not enough to act on: the reading
+	 * swings, and voting the charger down and up again on alternate
+	 * passes is worse than a brief overshoot.
+	 */
+	now_curr /= UA_PER_MA;
+
+	if (effective_curr && now_curr < -curr)
+		over_curr_count++;
+	else
+		over_curr_count = 0;
+
+	if (over_curr_count > JEITA_SWOCP_DEBOUNCE && effective_curr) {
+		over_curr_count = 0;
+		swocp_engaged = true;
 		mca_vote(jeita->fcc_voter, JEITA_SWOCP_VOTER, true,
-			 effective_curr - (now_curr - curr));
-		mca_log_err("reduce fcc %d by swocp\n", now_curr - curr);
-	} else {
+			 effective_curr - JEITA_SWOCP_STEP_MA);
+		mca_log_err("reduce fcc %d by swocp\n",
+			    effective_curr - JEITA_SWOCP_STEP_MA);
+	}
+
+	/*
+	 * Let go only once the reading has come back with room to spare, or
+	 * the vote would be dropped the moment it started working.
+	 */
+	if (swocp_engaged && now_curr > JEITA_SWOCP_RELEASE_MA - curr) {
+		swocp_engaged = false;
 		mca_vote(jeita->fcc_voter, JEITA_SWOCP_VOTER, false, 0);
 		mca_log_err("disable swocp\n");
 	}
