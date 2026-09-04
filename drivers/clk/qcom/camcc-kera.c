@@ -2995,9 +2995,13 @@ static int cam_cc_kera_probe(struct platform_device *pdev)
 
 	/*
 	 * Keep clocks always enabled:
+	 *	cam_cc_drv_ahb_clk
+	 *	cam_cc_drv_xo_clk
 	 *	cam_cc_gdsc_clk
 	 *	cam_cc_sleep_clk
 	 */
+	regmap_update_bits(regmap, 0x113c4, BIT(0), BIT(0));
+	regmap_update_bits(regmap, 0x113c0, BIT(0), BIT(0));
 	regmap_update_bits(regmap, 0x1137c, BIT(0), BIT(0));
 	regmap_update_bits(regmap, 0x11398, BIT(0), BIT(0));
 
