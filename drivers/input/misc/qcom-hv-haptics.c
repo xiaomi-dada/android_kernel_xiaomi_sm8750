@@ -740,6 +740,8 @@ struct haptics_hw_config {
 	u32			vmax_mv;
 	/* What to drive the motor at while measuring its resonance. */
 	u32			f0_vmax_mv;
+	/* Custom effects are driven at their own level, not the general one. */
+	u32			custom_vmax_mv;
 	u32			t_lra_us;
 	u32			cl_t_lra_us;
 	u32			lra_min_mohms;
@@ -2830,7 +2832,7 @@ static int haptics_init_custom_effect(struct haptics_chip *chip)
 	chip->custom_effect->pattern = NULL;
 	chip->custom_effect->brake = NULL;
 	chip->custom_effect->id = UINT_MAX;
-	chip->custom_effect->vmax_mv = chip->config.vmax_mv;
+	chip->custom_effect->vmax_mv = chip->config.custom_vmax_mv;
 	chip->custom_effect->t_lra_us = chip->config.t_lra_us;
 	chip->custom_effect->src = FIFO;
 	chip->custom_effect->auto_res_disable = true;
@@ -4881,6 +4883,14 @@ static int haptics_parse_dt(struct haptics_chip *chip)
 	config->f0_vmax_mv = DEFAULT_VMAX_MV;
 	of_property_read_u32(node, "qcom,f0-vmax-mv", &config->f0_vmax_mv);
 	of_property_read_u32(node, "qcom,vmax-mv", &config->vmax_mv);
+	config->custom_vmax_mv = DEFAULT_VMAX_MV;
+	of_property_read_u32(node, "qcom,custom_vmax_mv", &config->custom_vmax_mv);
+	if (config->custom_vmax_mv >= MAX_VMAX_MV) {
+		dev_err(chip->dev, "qcom,custom_vmax_mv (%d) exceed the max value: %d\n",
+				config->custom_vmax_mv, MAX_VMAX_MV);
+		rc = -EINVAL;
+		goto free_pbs;
+	}
 	if (config->vmax_mv >= MAX_VMAX_MV) {
 		dev_err(chip->dev, "qcom,vmax-mv (%d) exceed the max value: %d\n",
 				config->vmax_mv, MAX_VMAX_MV);
