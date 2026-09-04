@@ -4196,20 +4196,35 @@ static int strategy_wireless_debug_process_data(const char *buf, struct strategy
 	char *pchar = NULL;
 	int args[50] = {0};
 	u8 count = 0;
-	char buf_tmp[100] = { 0 };
-	char *str = buf_tmp;
+	size_t len = strlen(buf);
+	char *buf_tmp;
+	char *str;
 	int ret = 0;
 
-	mca_log_info("buf length is %zu\n", strlen(buf));
-	memcpy(buf_tmp, buf, strlen(buf));
+	mca_log_info("buf length is %zu\n", len);
+
+	/*
+	 * strsep writes into what it walks, so the attribute's own buffer
+	 * cannot be used.  Take a copy the size of what arrived: a sysfs
+	 * write is as long as userspace cares to make it, up to a page.
+	 */
+	buf_tmp = kmemdup_nul(buf, len, GFP_KERNEL);
+	if (!buf_tmp)
+		return -ENOMEM;
+
+	str = buf_tmp;
 	pchar = strsep(&str, " ");
-	while (pchar != NULL) {
-		if (kstrtoint(pchar, 10, &args[count]))
+	/* Stop at the end of args rather than walking off it. */
+	while (pchar != NULL && count < ARRAY_SIZE(args)) {
+		if (kstrtoint(pchar, 10, &args[count])) {
+			kfree(buf_tmp);
 			return -1;
+		}
 		mca_log_info("args[%d]: %d\n", count, args[count]);
 		pchar = strsep(&str, " ");
 		++count;
 	}
+	kfree(buf_tmp);
 
 	switch (args[0]) {
 	case DEBUG_SET_FCC:
