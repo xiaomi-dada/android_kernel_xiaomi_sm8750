@@ -285,21 +285,6 @@ static void wcd_micbias_disable(struct wcd_mbhc *mbhc)
 	}
 }
 
-/*
- * The shipped mbhc calls lpass_cdc_tx_macro_mute_hs() from each of the seven
- * places a plug state changes -- here, the adc remove and elec unplug paths,
- * find_plug_and_report, correct_swch_plug, the switch irq handler and the
- * usbc analog event handler.  That helper is a vendor addition to the tx
- * macro: for every decimator in the active mask it saves TX_PATH_CTL
- * (0x400 + dec * 0x80), sets the mute bit 0x10, and queues an unmute 300
- * jiffies later.  Neither the helper nor its unmute work exists in this
- * tree, so the mic path is not muted across a transition and a pop can be
- * heard on it.
- *
- * Reconstructing it blind would put a mute on the microphone path on every
- * headset event across two drivers, with a dead mic as the failure mode and
- * no way to test it here, so the gap is recorded rather than guessed at.
- */
 static void wcd_mbhc_report_plug_removal(struct wcd_mbhc *mbhc,
 					 enum snd_jack_types jack_type)
 {
