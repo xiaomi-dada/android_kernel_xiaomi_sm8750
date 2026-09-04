@@ -1355,6 +1355,41 @@ static int strategy_wireless_send_vout_range_request(struct strategy_wireless_de
 	return ret;
 }
 
+/*
+ * A pad whose reported Q has fallen to the figure its adapter declares is
+ * coupling badly - something between the coils, usually - and holding the
+ * rail high through that puts the difference into heat rather than into the
+ * cell.  Bring it back to what the stage would otherwise be running at.
+ */
+static void strategy_wireless_q_value_reduce_voltage_func(struct strategy_wireless_dev *info)
+{
+	int num = strategy_wireless_get_compatible_info(info);
+	int tx_q2 = 0;
+
+	if (num < 0 || num >= EXTERNAL_ADAPTER_DEFAULT)
+		return;
+
+	if (info->uuid_adapter_info[num].compatible_info.low_inductance_50w_tx &&
+	    info->support_q[ADAPTER_LOW_INDUCTANCE_TX_50W])
+		tx_q2 = info->tx_q2[ADAPTER_LOW_INDUCTANCE_TX_50W];
+	else if (info->uuid_adapter_info[num].compatible_info.low_inductance_80w_tx &&
+		 info->support_q[ADAPTER_LOW_INDUCTANCE_TX_80W])
+		tx_q2 = info->tx_q2[ADAPTER_LOW_INDUCTANCE_TX_80W];
+	else if (info->uuid_adapter_info[num].compatible_info.magnet_30w_tx &&
+		 info->support_q[ADAPTER_MAGNET_30W_TX])
+		tx_q2 = info->tx_q2[ADAPTER_MAGNET_30W_TX];
+
+	if (info->proc_data.tx_q > tx_q2)
+		return;
+
+	(void)strategy_wireless_set_rx_vout(info,
+			info->proc_data.chgr_stage == WLS_FULL_MODE ?
+			BPP_DEFAULT_VOUT : EPP_DEFAULT_VOUT);
+
+	mca_log_info("q_value=%d < tx_q2=%d reduce voltage\n",
+		     info->proc_data.tx_q, tx_q2);
+}
+
 static __always_inline int strategy_wireless_transparent_success(struct strategy_wireless_dev *info)
 {
 	int ret = 0;
@@ -1400,6 +1435,15 @@ static __always_inline int strategy_wireless_transparent_success(struct strategy
 	default:
 		break;
 	}
+
+	/*
+	 * Answering the frequency request leaves the exchange pointing at the
+	 * voltage one, and that is the moment the pad's Q reading is worth
+	 * acting on: it has been read, and the rail has not been raised for it
+	 * yet.  The voltage case clears the state, so this does not fire twice.
+	 */
+	if (info->proc_data.current_for_tx_cmd == TX_CMD_TYPE_VOLTAGE)
+		strategy_wireless_q_value_reduce_voltage_func(info);
 
 	return ret;
 }
