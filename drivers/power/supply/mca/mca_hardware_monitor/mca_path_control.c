@@ -859,6 +859,7 @@ static int probe_cnt;
 static int mca_path_control_probe(struct platform_device *pdev)
 {
 	struct mca_path_control *chip;
+	int ret;
 
 	mca_log_info("probe_cnt = %d\n", probe_cnt++);
 
@@ -870,7 +871,6 @@ static int mca_path_control_probe(struct platform_device *pdev)
 	}
 
 	chip->dev = &pdev->dev;
-	g_info = chip;
 	platform_set_drvdata(pdev, chip);
 	mutex_init(&chip->enable_handling_lock);
 
@@ -897,15 +897,22 @@ static int mca_path_control_probe(struct platform_device *pdev)
 	queue_delayed_work(system_wq, &chip->update_status_work,
 			   msecs_to_jiffies(PATH_CONTROL_FIRST_POLL_MS));
 
+	/*
+	 * Only now that the description parsed is the driver reachable through
+	 * g_info: a probe that fails below returns with chip already freed.
+	 */
+	g_info = chip;
+
 	mca_sysfs_init_attrs(path_control_attrs, path_control_sysfs_field_tbl,
 			     ARRAY_SIZE(path_control_sysfs_field_tbl));
-	mca_sysfs_create_link_group(MCA_SYSFS_DEV_HW_MONITOR,
-				    PATH_CONTROL_DIR_NAME, chip->dev,
-				    &path_control_sysfs_attr_group);
+	ret = mca_sysfs_create_link_group(MCA_SYSFS_DEV_HW_MONITOR,
+					  PATH_CONTROL_DIR_NAME, chip->dev,
+					  &path_control_sysfs_attr_group);
 
-	mca_log_err("probe %s\n", "OK");
+	mca_log_err("probe %s\n",
+		    ret == -EPROBE_DEFER ? "Over probe cnt max" : "OK");
 
-	return 0;
+	return ret;
 }
 
 static int mca_path_control_remove(struct platform_device *pdev)
