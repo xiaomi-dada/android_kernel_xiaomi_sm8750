@@ -75,6 +75,9 @@ enum mca_log_attr_list {
  *                 timezone matches the phone's own clock
  * @log_index:     how many lines have been written since boot
  * @lastest_cache: which buffer is being filled
+ * @dump_cache:    which buffer dump_log_buff hands out, chosen by writing
+ *                 log_index.  Kept apart from lastest_cache so that reading
+ *                 an older buffer does not drag the writer along with it
  * @cache_num:     how many hold anything
  * @max_cache_num: how many there are
  * @log_buff_cache: the ring
@@ -89,6 +92,7 @@ struct mca_log_buf_info {
 	int		time_offset;
 	int		log_index;
 	int		lastest_cache;
+	int		dump_cache;
 	int		cache_num;
 	int		max_cache_num;
 	char		*log_buff_cache[MCA_LOG_MAX_CACHE_NUM];
@@ -303,9 +307,9 @@ static struct mca_sysfs_attr_info mca_log_sysfs_field_tbl[] = {
 			  log_enable),
 	mca_sysfs_attr_rw(mca_log_sysfs, 0644, MCA_LOG_ATTR_TIME_OFFSET,
 			  time_offset),
-	mca_sysfs_attr_ro(mca_log_sysfs, 0444, MCA_LOG_ATTR_LOG_INDEX,
+	mca_sysfs_attr_wo(mca_log_sysfs, 0200, MCA_LOG_ATTR_LOG_INDEX,
 			  log_index),
-	mca_sysfs_attr_rw(mca_log_sysfs, 0644, MCA_LOG_ATTR_CUR_BUFF,
+	mca_sysfs_attr_ro(mca_log_sysfs, 0444, MCA_LOG_ATTR_CUR_BUFF,
 			  cur_buff),
 	mca_sysfs_attr_ro(mca_log_sysfs, 0444, MCA_LOG_ATTR_MAX_BUFFER_NUM,
 			  max_buffer_num),
@@ -392,9 +396,6 @@ static ssize_t mca_log_sysfs_show(struct device *dev,
 	case MCA_LOG_ATTR_TIME_OFFSET:
 		val = mca_log.time_offset;
 		break;
-	case MCA_LOG_ATTR_LOG_INDEX:
-		val = mca_log.log_index;
-		break;
 	case MCA_LOG_ATTR_CUR_BUFF:
 		val = mca_log.lastest_cache;
 		break;
@@ -415,7 +416,10 @@ static ssize_t mca_log_sysfs_show(struct device *dev,
 		 * does not get the same lines again.
 		 */
 		spin_lock_irqsave(&mca_log_lock, flags);
-		cache = mca_log.log_buff_cache[mca_log.lastest_cache];
+		if (mca_log.dump_cache == mca_log.max_cache_num)
+			cache = mca_log.log_buff;
+		else
+			cache = mca_log.log_buff_cache[mca_log.dump_cache];
 		if (!cache) {
 			spin_unlock_irqrestore(&mca_log_lock, flags);
 			return 0;
@@ -475,10 +479,14 @@ static ssize_t mca_log_sysfs_store(struct device *dev,
 		mca_log.time_offset = val;
 		__mca_log_info("update time offset: %d", val);
 		break;
-	case MCA_LOG_ATTR_CUR_BUFF:
-		if (val < 0 || val >= mca_log.max_cache_num)
+	case MCA_LOG_ATTR_LOG_INDEX:
+		/*
+		 * Picks the buffer dump_log_buff hands out.  One past the last
+		 * ring slot names the scratch the current line is assembled in.
+		 */
+		if (val < 0 || val > mca_log.max_cache_num)
 			return -EINVAL;
-		mca_log.lastest_cache = val;
+		mca_log.dump_cache = val;
 		break;
 	case MCA_LOG_ATTR_CHARGE_BOOT_MODE:
 		mca_log_boot_mode = val;
