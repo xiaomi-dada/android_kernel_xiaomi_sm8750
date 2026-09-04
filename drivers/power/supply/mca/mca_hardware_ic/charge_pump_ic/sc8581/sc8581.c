@@ -314,7 +314,7 @@ struct sc8581_fsw_cfg {
  * @irq_gpio:        the pin the part raises
  * @nlpm_gpio:       the pin that takes it out of low-power mode
  * @ovpgate_en:      the gate in front of the input is open
- * @i2c_is_working:  the bus is answering
+ * @i2c_is_working:  the part is resumed, so its bus may be used
  * @support_reverse_quick_charge: the board can feed a device quickly
  */
 struct sc8581_device {
@@ -369,12 +369,10 @@ static int cp_read_byte(struct sc8581_device *chip, u8 reg, u8 *val)
 	int rc = i2c_smbus_read_byte_data(chip->client, reg);
 
 	if (rc < 0) {
-		chip->i2c_is_working = false;
 		mca_log_err("read reg 0x%02x failed: %d\n", reg, rc);
 		return rc;
 	}
 
-	chip->i2c_is_working = true;
 	*val = rc;
 
 	return 0;
@@ -385,12 +383,9 @@ static int cp_write_byte(struct sc8581_device *chip, u8 reg, u8 val)
 	int rc = i2c_smbus_write_byte_data(chip->client, reg, val);
 
 	if (rc < 0) {
-		chip->i2c_is_working = false;
 		mca_log_err("write reg 0x%02x failed: %d\n", reg, rc);
 		return rc;
 	}
-
-	chip->i2c_is_working = true;
 
 	return 0;
 }
@@ -413,12 +408,8 @@ static int cp_read_word(struct sc8581_device *chip, u8 reg, u16 *val)
 {
 	int rc = i2c_smbus_read_word_data(chip->client, reg);
 
-	if (rc < 0) {
-		chip->i2c_is_working = false;
+	if (rc < 0)
 		return rc;
-	}
-
-	chip->i2c_is_working = true;
 
 	/* The part sends the high byte first; the bus hands them over the
 	 * other way round.
