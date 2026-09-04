@@ -150,6 +150,12 @@ struct msm_ssphy_qmp {
 	int			reg_offset_cnt;
 	u32			*qmp_phy_init_seq;
 	int			init_seq_len;
+	/* Board level eye diagram tuning, offset/value pairs from the DT. */
+	u32			*usb3_phy_eye_seq;
+	int			usb3_phy_eye_seq_len;
+	u32			*host_usb3_phy_eye_seq;
+	int			host_usb3_phy_eye_seq_len;
+	bool			usb3_eye;
 	enum qmp_phy_type	phy_type;
 };
 
@@ -408,6 +414,59 @@ put_gdsc:
 	return rc < 0 ? rc : 0;
 }
 
+static int msm_ssphy_read_overrides(struct device *dev, const char *prop,
+				u32 **seq, int *seq_len)
+{
+	int num_elem, ret;
+
+	num_elem = of_property_count_elems_of_size(dev->of_node, prop,
+			sizeof(**seq));
+	if (num_elem <= 0)
+		return 0;
+
+	if (num_elem % 2) {
+		dev_err(dev, "invalid len for %s\n", prop);
+		return -EINVAL;
+	}
+
+	*seq = devm_kzalloc(dev, sizeof(**seq) * num_elem, GFP_KERNEL);
+	if (!*seq)
+		return -ENOMEM;
+
+	ret = of_property_read_u32_array(dev->of_node, prop, *seq, num_elem);
+	if (ret) {
+		dev_err(dev, "error reading %s\n", prop);
+		return ret;
+	}
+
+	*seq_len = num_elem;
+
+	return 0;
+}
+
+/*
+ * The transmit amplitude and de-emphasis that keep the SuperSpeed eye within
+ * spec are a property of the board, not of the part, so they arrive from the
+ * device tree as offset/value pairs rather than living in the init sequence.
+ */
+static int configure_usb3_phy_eye_regs(struct usb_phy *uphy,
+				const struct qmp_reg_val *reg, int len)
+{
+	struct msm_ssphy_qmp *phy = container_of(uphy, struct msm_ssphy_qmp,
+					phy);
+	int i;
+
+	if (!reg)
+		return 0;
+
+	for (i = 0; i < len / 2; i++) {
+		writel_relaxed(reg->val, phy->base + reg->offset);
+		reg++;
+	}
+
+	return 0;
+}
+
 static int configure_phy_regs(struct usb_phy *uphy,
 				const struct qmp_reg_val *reg)
 {
@@ -591,6 +650,22 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 	if (ret) {
 		dev_err(uphy->dev, "Failed the main PHY configuration\n");
 		goto fail;
+	}
+
+	/* usb3 phy eye diagram configuration */
+	if (phy->usb3_eye) {
+		if (uphy->flags & PHY_HOST_MODE)
+			ret = configure_usb3_phy_eye_regs(uphy,
+				(struct qmp_reg_val *)phy->host_usb3_phy_eye_seq,
+				phy->host_usb3_phy_eye_seq_len);
+		else
+			ret = configure_usb3_phy_eye_regs(uphy,
+				(struct qmp_reg_val *)phy->usb3_phy_eye_seq,
+				phy->usb3_phy_eye_seq_len);
+		if (ret) {
+			dev_err(uphy->dev, "Failed the usb3 PHY eye diag configuration\n");
+			goto fail;
+		}
 	}
 
 	/* perform software reset of PCS/Serdes */
@@ -1158,6 +1233,20 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 		dev_err(dev, "error need qmp-phy-init-seq\n");
 		return -EINVAL;
 	}
+
+	ret = msm_ssphy_read_overrides(dev, "qcom,usb3-phy-eye-seq",
+			&phy->usb3_phy_eye_seq, &phy->usb3_phy_eye_seq_len);
+	if (ret)
+		return ret;
+
+	ret = msm_ssphy_read_overrides(dev, "qcom,host-usb3-phy-eye-seq",
+			&phy->host_usb3_phy_eye_seq,
+			&phy->host_usb3_phy_eye_seq_len);
+	if (ret)
+		return ret;
+
+	phy->usb3_eye = of_property_read_bool(dev->of_node,
+			"usb3,eyegram-tuning");
 
 	/* Set default core voltage values */
 	phy->core_voltage_levels[CORE_LEVEL_NONE] = 0;
