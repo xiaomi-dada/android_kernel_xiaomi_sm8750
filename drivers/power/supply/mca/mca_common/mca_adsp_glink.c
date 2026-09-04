@@ -419,6 +419,7 @@ static int mca_adsp_glink_probe(struct platform_device *pdev)
 			mca_log_err("Error in registering with pmic_glink %d\n",
 				    ret);
 
+		mca_glink_data = NULL;
 		return ret;
 	}
 
@@ -437,6 +438,7 @@ static int mca_adsp_glink_probe(struct platform_device *pdev)
 
 		pmic_glink_unregister_client(mca_glink_data->client);
 
+		mca_glink_data = NULL;
 		return ret;
 	}
 
