@@ -113,7 +113,7 @@
 #define BATT_LOW_VOLT_SW_HY 50
 #define DEFAULT_DESIGN_CAPACITY 5000
 #define FG_FORCE_REPORT_FULL_TIMES 2
-#define STRATEGY_FG_ABNORMAL_DFX_DELAY 17500
+#define STRATEGY_FG_ABNORMAL_DFX_DELAY 70000
 
 /*
  * A one-wire pack answers for itself, so there is nothing here to check: the
