@@ -204,7 +204,13 @@ static int mca_panel_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, mp);
 	mca_panel = mp;
 
-	queue_delayed_work(system_wq, &mp->register_work, 0);
+	/*
+	 * Give DRM time to register the panel before the first look: at probe
+	 * it is not there yet, so an immediate attempt only spends one of the
+	 * retries on a failure that is expected.
+	 */
+	queue_delayed_work(system_wq, &mp->register_work,
+			   msecs_to_jiffies(MCA_PANEL_RETRY_MS));
 
 	pr_debug("probe OK\n");
 
