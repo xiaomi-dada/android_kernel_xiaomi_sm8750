@@ -64,10 +64,10 @@
  */
 #define QC3P5_STEP_MV			20
 #define QC3P5_STEP_MS			5
-#define QC3P5_SETTLE_MS			500
+#define QC3P5_SETTLE_MV			500
 #define QC_STEP_MV			200
 #define QC_STEP_MS			50
-#define QC_SETTLE_MS			800
+#define QC_SETTLE_MV			800
 
 /* How often the ramp looks at where the adapter has got to. */
 #define QC_POLL_MS			50
@@ -742,8 +742,8 @@ static int qcom_subpmic_set_qc_volt(void *data, int volt)
 	struct qcom_subpmic_data *subpmic = data;
 	int vbus = 0;
 	int target = volt;
-	int step, step_ms, settle_ms;
-	int diff, steps, wait_ms;
+	int step, step_ms, settle_mv;
+	int diff, steps, wait_ms, settled_mv;
 	ktime_t start;
 	int rc;
 
@@ -752,11 +752,11 @@ static int qcom_subpmic_set_qc_volt(void *data, int volt)
 	if (subpmic->real_type == XM_CHARGER_TYPE_HVDCP3P5) {
 		step = QC3P5_STEP_MV;
 		step_ms = QC3P5_STEP_MS;
-		settle_ms = QC3P5_SETTLE_MS;
+		settle_mv = QC3P5_SETTLE_MV;
 	} else {
 		step = QC_STEP_MV;
 		step_ms = QC_STEP_MS;
-		settle_ms = QC_SETTLE_MS;
+		settle_mv = QC_SETTLE_MV;
 	}
 
 	if (volt < QC_VOLT_MIN_MV || volt > QC_VOLT_MAX_MV) {
@@ -768,6 +768,16 @@ static int qcom_subpmic_set_qc_volt(void *data, int volt)
 				 sizeof(vbus));
 	vbus /= UV_PER_MV;
 	diff = volt - vbus;
+
+	/*
+	 * The request is met once VBUS has come within the settle band of the
+	 * target, approached from whichever side it started on.  Holding out
+	 * for the exact figure would outlast the adapter's own step rate.
+	 */
+	if (diff > 0)
+		settled_mv = volt - settle_mv;
+	else
+		settled_mv = volt + settle_mv;
 
 	mca_log_info("real_type: %d, volt: %d, vbus: %d\n", subpmic->real_type,
 		     volt, vbus);
@@ -786,8 +796,9 @@ static int qcom_subpmic_set_qc_volt(void *data, int volt)
 	if (abs(diff) < step)
 		return 0;
 
+	/* The adapter moves a step at a time, so budget the wait by the count. */
 	steps = abs(diff) / step;
-	wait_ms = steps * step_ms + settle_ms;
+	wait_ms = steps * step_ms;
 
 	while (true) {
 		msleep(QC_POLL_MS);
@@ -797,12 +808,12 @@ static int qcom_subpmic_set_qc_volt(void *data, int volt)
 		vbus /= UV_PER_MV;
 		mca_log_info("vbus: %d\n", vbus);
 
-		if (vbus < QC_VBUS_GONE_MV || !subpmic->real_type) {
+		if (vbus < QC_VBUS_GONE_MV || !subpmic->usb_online) {
 			mca_log_info("usb removed, break\n");
 			break;
 		}
 
-		if (abs(volt - vbus) < step)
+		if (diff > 0 ? vbus > settled_mv : vbus < settled_mv)
 			break;
 
 		if (ktime_ms_delta(ktime_get_boottime(), start) > wait_ms) {
