@@ -1400,6 +1400,61 @@ static void smart_charge_sysfs_remove_group(struct device *dev)
 				    &smartchg_sysfs_attr_group);
 }
 
+/*
+ * smart_charge_check_baa_layout() - is every record inside the blob?
+ * @hdr: the header, at the head of the buffer it describes
+ *
+ * Each count below is read out of the page userspace writes, and the walk
+ * that follows takes its stride from those counts: nothing downstream
+ * re-checks that a record it is handed still lies inside the buffer.  Left
+ * unchecked, a count larger than the data reads off the end of the page, and
+ * a step_size larger than a consumer's staging array trips the fortified
+ * memcpy there and takes the kernel down.  So walk the layout once, up front,
+ * and refuse the blob whole rather than part-way through applying it.
+ *
+ * Return: 0 if the layout closes inside @hdr->total_len, -EINVAL otherwise.
+ */
+static int smart_charge_check_baa_layout(const struct smart_basp_header *hdr)
+{
+	size_t total_len = hdr->total_len;
+	size_t off = sizeof(*hdr);
+	size_t n;
+
+	if (total_len > PAGE_SIZE || total_len < off)
+		return -EINVAL;
+
+	/* The jeita terms are fixed-size, so they bound in one step. */
+	n = (size_t)hdr->jeita_ffc_term_size + hdr->jeita_normal_term_size;
+	if (n > (total_len - off) / sizeof(struct smart_batt_jeita_term_para))
+		return -EINVAL;
+	off += n * sizeof(struct smart_batt_jeita_term_para);
+
+	/*
+	 * The wired and wireless specs are variable-length and laid end to
+	 * end, so the only way to bound them is to walk them: each record's
+	 * step_size decides where the next one starts.
+	 */
+	n = (size_t)hdr->wired_ffc_size + hdr->wired_normal_size +
+	    hdr->wls_ffc_size + hdr->wls_normal_size;
+	while (n--) {
+		const struct smart_batt_spec *spec;
+
+		if (total_len - off < offsetof(struct smart_batt_spec, steps))
+			return -EINVAL;
+		spec = (const struct smart_batt_spec *)((const char *)hdr + off);
+		off += offsetof(struct smart_batt_spec, steps);
+
+		if (spec->step_size > SMART_BATT_SPEC_MAX_STEPS ||
+		    spec->step_size > (total_len - off) /
+				      sizeof(struct smart_batt_spec_curve))
+			return -EINVAL;
+		off += (size_t)spec->step_size *
+		       sizeof(struct smart_batt_spec_curve);
+	}
+
+	return 0;
+}
+
 static int smart_charge_handle_baa_data(struct smart_charge_info *info)
 {
 	struct smart_basp_header *basp_header =
@@ -1410,6 +1465,11 @@ static int smart_charge_handle_baa_data(struct smart_charge_info *info)
 
 	if (!basp_header) {
 		mca_log_err("mmap_addr is NULL\n");
+		return -1;
+	}
+
+	if (smart_charge_check_baa_layout(basp_header)) {
+		mca_log_err("Invalid baa layout, ignoring blob\n");
 		return -1;
 	}
 

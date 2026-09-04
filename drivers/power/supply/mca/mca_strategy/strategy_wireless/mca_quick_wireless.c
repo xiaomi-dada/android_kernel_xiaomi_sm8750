@@ -394,7 +394,10 @@ static int mca_wireless_quick_charge_smartchg_baa_update_volt_info(
 	return 0;
 }
 
-#define MCA_QUICK_CHARGE_MAX_VOLT_STEP_SIZE 8
+/* Sized by the hand-off format's own limit; smart_charge rejects any
+ * blob that exceeds it before this staging array is ever filled.
+ */
+#define MCA_QUICK_CHARGE_MAX_VOLT_STEP_SIZE SMART_BATT_SPEC_MAX_STEPS
 static int mca_wireless_quick_charge_smartchg_update_baa_para(void *data, char *baa_para, int ffc_size, int normal_size)
 {
 	struct mca_wireless_quick_charge_info *info = (struct mca_wireless_quick_charge_info *)data;

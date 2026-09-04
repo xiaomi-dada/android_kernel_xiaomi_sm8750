@@ -216,6 +216,15 @@ struct smart_batt_spec_curve {
 	int	ma_l;
 };
 
+/*
+ * How many curve points one band may carry.  The consumers stage the points
+ * in an array of this size before taking them, so it is a limit of the
+ * hand-off format itself and not of any one consumer: smart_charge refuses a
+ * blob that exceeds it rather than letting a consumer overrun its staging
+ * buffer.
+ */
+#define SMART_BATT_SPEC_MAX_STEPS	8
+
 struct smart_batt_spec {
 	u32				type;
 	u32				ffc;
