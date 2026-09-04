@@ -68,6 +68,7 @@
 #define SC8581_REG_GATE_STATUS		0x0f
 #define SC8581_REG_INT_STAT		0x10
 #define  SC8581_VUSB_PRESENT		BIT(0)
+#define  SC8581_VBAT_PRESENT		BIT(3)
 #define SC8581_REG_INT_FLAG		0x11
 #define SC8581_REG_FLT_FLAG		0x13
 #define SC8581_REG_ADC_CTRL		0x15
@@ -1079,7 +1080,12 @@ static int ops_cp_get_battery_present(bool *present, void *data)
 	int rc;
 
 	rc = cp_read_byte(chip, SC8581_REG_INT_STAT, &val);
-	*present = !!val;
+	/*
+	 * One bit of this register answers the question; the rest are other
+	 * lines' status.  Testing the whole byte reports a battery whenever
+	 * any of them happens to be set.
+	 */
+	*present = !!(val & SC8581_VBAT_PRESENT);
 
 	return rc;
 }
