@@ -59,7 +59,6 @@ enum mca_log_attr_list {
 	MCA_LOG_ATTR_MAX_BUFFER_NUM,
 	MCA_LOG_ATTR_DUMP_LOG_BUFF,
 	MCA_LOG_ATTR_WRITE_LOG,
-	MCA_LOG_ATTR_CHARGE_BOOT_MODE,
 	MCA_LOG_ATTR_CHARGE_LOG_HEAD,
 	MCA_LOG_ATTR_CHARGE_LOG_INFO,
 };
@@ -118,7 +117,15 @@ static struct mca_charge_log_ops_data {
 	void				*data;
 } mca_log_sources[MCA_CHARGE_LOG_ID_MAX];
 
-static int mca_log_boot_mode;
+/*
+ * Set on the kernel command line as mca_log.charge_boot_mode, from
+ * androidboot.mode: the bootloader tells us whether this is a charging-only
+ * boot, which the charging strategies read back through
+ * mca_log_get_charge_boot_mode().
+ */
+static unsigned int charge_boot_mode;
+module_param(charge_boot_mode, uint, 0644);
+MODULE_PARM_DESC(charge_boot_mode, "charge_boot_mode");
 
 /**
  * mca_log_proc_log_info() - put one finished line into the ring
@@ -288,7 +295,7 @@ EXPORT_SYMBOL_GPL(mca_log_charge_log_register);
 
 int mca_log_get_charge_boot_mode(void)
 {
-	return mca_log_boot_mode;
+	return charge_boot_mode;
 }
 EXPORT_SYMBOL_GPL(mca_log_get_charge_boot_mode);
 
@@ -317,8 +324,6 @@ static struct mca_sysfs_attr_info mca_log_sysfs_field_tbl[] = {
 			  dump_log_buff),
 	mca_sysfs_attr_wo(mca_log_sysfs, 0200, MCA_LOG_ATTR_WRITE_LOG,
 			  write_log),
-	mca_sysfs_attr_rw(mca_log_sysfs, 0644, MCA_LOG_ATTR_CHARGE_BOOT_MODE,
-			  charge_boot_mode),
 	mca_sysfs_attr_ro(mca_log_sysfs, 0444, MCA_LOG_ATTR_CHARGE_LOG_HEAD,
 			  charge_log_head),
 	mca_sysfs_attr_ro(mca_log_sysfs, 0444, MCA_LOG_ATTR_CHARGE_LOG_INFO,
@@ -402,9 +407,6 @@ static ssize_t mca_log_sysfs_show(struct device *dev,
 	case MCA_LOG_ATTR_MAX_BUFFER_NUM:
 		val = mca_log.max_cache_num;
 		break;
-	case MCA_LOG_ATTR_CHARGE_BOOT_MODE:
-		val = mca_log_boot_mode;
-		break;
 	case MCA_LOG_ATTR_CHARGE_LOG_HEAD:
 		return mca_log_dump_charge_log(buf, true);
 	case MCA_LOG_ATTR_CHARGE_LOG_INFO:
@@ -487,10 +489,6 @@ static ssize_t mca_log_sysfs_store(struct device *dev,
 		if (val < 0 || val > mca_log.max_cache_num)
 			return -EINVAL;
 		mca_log.dump_cache = val;
-		break;
-	case MCA_LOG_ATTR_CHARGE_BOOT_MODE:
-		mca_log_boot_mode = val;
-		__mca_log_info("charge_boot_mode %d", val);
 		break;
 	default:
 		return -EINVAL;
