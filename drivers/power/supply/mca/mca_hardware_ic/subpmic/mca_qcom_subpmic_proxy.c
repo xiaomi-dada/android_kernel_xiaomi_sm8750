@@ -81,6 +81,9 @@
 /* How long the first configuration push waits behind the type probe. */
 #define SUBPMIC_SYNC_START_MS		100
 
+/* Below this the bus has collapsed and there is nothing left to walk. */
+#define QC_VBUS_GONE_MV			4000
+
 /* The ADSP reports voltages in microvolts; the stack works in millivolts. */
 #define UV_PER_MV			1000
 
@@ -794,7 +797,7 @@ static int qcom_subpmic_set_qc_volt(void *data, int volt)
 		vbus /= UV_PER_MV;
 		mca_log_info("vbus: %d\n", vbus);
 
-		if (!subpmic->real_type) {
+		if (vbus < QC_VBUS_GONE_MV || !subpmic->real_type) {
 			mca_log_info("usb removed, break\n");
 			break;
 		}
