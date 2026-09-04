@@ -3241,8 +3241,6 @@ static int strategy_buckchg_if_get_chg_cur(char *buf, void *data)
 
 #define MTBF_CLIENT_SUBSTR_UPPER "MTBF\0"
 #define MTBF_CLIENT_SUBSTR_LOW "mtbf\0"
-#define MTBF_ACTIVE_TEST_CLIENT_SUBSTR "shell\0"
-#define MTBF_TEST_MAX_CURRENT_MA 1500
 static int strategy_buckchg_if_set_input_cur(const char *user,
 	char *value, void *data)
 {
@@ -3255,15 +3253,15 @@ static int strategy_buckchg_if_set_input_cur(const char *user,
 	if (kstrtoint(value, 0, &temp_value))
 		return -1;
 
-	if (strstr(user, MTBF_ACTIVE_TEST_CLIENT_SUBSTR) != NULL) {
-			if (temp_value > MTBF_TEST_MAX_CURRENT_MA)
-				temp_value = MTBF_TEST_MAX_CURRENT_MA;
-	}
-
+	/*
+	 * The endurance test votes under its own name and has to win against
+	 * whatever else is holding the input down, so those two clients get an
+	 * override rather than an ordinary vote.  Everything else, including
+	 * anything driving this from a shell, votes normally.
+	 */
 	if (temp_value) {
 		if (strstr(user, MTBF_CLIENT_SUBSTR_UPPER) != NULL ||
-			strstr(user, MTBF_CLIENT_SUBSTR_LOW) != NULL ||
-			strstr(user, MTBF_ACTIVE_TEST_CLIENT_SUBSTR) != NULL)
+			strstr(user, MTBF_CLIENT_SUBSTR_LOW) != NULL)
 			mca_vote_override(info->input_limit_voter, user, true, temp_value);
 		else
 			(void)mca_vote(info->input_limit_voter, user, true, temp_value);
