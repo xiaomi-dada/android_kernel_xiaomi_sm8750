@@ -1890,7 +1890,7 @@ static int mca_strategy_check_termination(struct strategy_fg *fg)
 #define FORCE_FULL_COUNT_FAST			3
 #define FORCE_FULL_COUNT_NORMAL			2
 #define FORCE_FULL_SETTLE_SEC			7
-#define FORCE_FULL_REPORT_DELAY_MS		2000
+#define FORCE_FULL_REPORT_DELAY_MS		8000
 
 static void mca_strategy_single_force_fw_report_full(struct strategy_fg *fg)
 {
@@ -4291,9 +4291,9 @@ static void delay_reset_full_flag_work(struct work_struct *work)
 /* How soon the monitor looks again once a supply has just been attached. */
 #define STRATEGY_FG_WORK_INTERVAL_PLUGIN 250
 /* How long the full flag is held after the last supply goes away. */
-#define STRATEGY_FG_RESET_FULL_FLAG_MS 15000
+#define STRATEGY_FG_RESET_FULL_FLAG_MS 60000
 /* How soon the pack-temperature monitor starts once charging begins. */
-#define STRATEGY_FG_DTPT_START_MS 1250
+#define STRATEGY_FG_DTPT_START_MS 5000
 
 /* Everything that has to happen once, when the first supply arrives. */
 static void strategy_fg_power_present(struct strategy_fg *info)
