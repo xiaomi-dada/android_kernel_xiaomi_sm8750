@@ -274,6 +274,12 @@ static int mca_wireless_rev_onekey_download_firmware(void)
 	if (ret < 0)
 		goto onekey_download_exit;
 
+	/*
+	 * That config is what powers the coil the receiver being flashed runs
+	 * from, so give the rail time to come up before talking to it.
+	 */
+	msleep(200);
+
 	mca_log_err("enter onekey download firmware");
 	if (!info->proc_data.only_check) {
 		if (info->proc_data.from_bin)
