@@ -4603,6 +4603,27 @@ static int basic_wireless_class_remove(struct platform_device *pdev)
 	wake_up(&info->irq_wait);
 	cancel_work_sync(&info->irq_work);
 
+	/* Cancel before draining: these can still add to the queue. */
+	cancel_delayed_work_sync(&info->monitor_work);
+	cancel_delayed_work_sync(&info->trans_data_work);
+	cancel_delayed_work_sync(&info->get_adapter_work);
+	cancel_delayed_work_sync(&info->find_voter_work);
+	cancel_delayed_work_sync(&info->report_soc_decimal_work);
+	cancel_delayed_work_sync(&info->renegociation_work);
+	cancel_delayed_work_sync(&info->wireless_loop_work);
+	cancel_delayed_work_sync(&info->mutex_unlock_work);
+	cancel_delayed_work_sync(&info->update_wireless_thermal_work);
+	cancel_delayed_work_sync(&info->set_vdd_flag_work);
+	cancel_delayed_work_sync(&info->max_power_control_work);
+	cancel_delayed_work_sync(&info->rx_fastcharge_work);
+	cancel_delayed_work_sync(&info->rx_alarm_work);
+	cancel_delayed_work_sync(&info->wls_fw_state_work);
+	cancel_delayed_work_sync(&info->wls_drawload_work);
+	cancel_delayed_work_sync(&info->sw_cv_work);
+	cancel_delayed_work_sync(&info->base_flip_sw_cv_work);
+	cancel_delayed_work_sync(&info->soc_limit_stepper_work);
+	cancel_delayed_work_sync(&info->change_cp_mode_work);
+
 	spin_lock_irqsave(&info->irq_queue_lock, flags);
 	list_for_each_entry_safe(node, tmp, &info->irq_queue, node) {
 		list_del(&node->node);
