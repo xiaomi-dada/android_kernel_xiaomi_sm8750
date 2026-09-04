@@ -4618,7 +4618,32 @@ static int strategy_fg_probe(struct platform_device *pdev)
 
 static int strategy_fg_remove(struct platform_device *pdev)
 {
+	struct strategy_fg *fg =
+		(struct strategy_fg *)platform_get_drvdata(pdev);
+
 	strategy_fg_auth_remove_group(&pdev->dev);
+
+	if (!fg)
+		return 0;
+
+	/*
+	 * The notifier chains hold pointers into this driver's state, so they
+	 * have to be dropped before it goes away.  Do that first: it stops
+	 * anything new being queued while the works below are being cancelled.
+	 */
+	mca_event_block_notify_unregister(MCA_EVENT_TYPE_PANEL, &fg->panel_nb);
+	mca_event_block_notify_unregister(MCA_EVENT_TYPE_THERMAL_TEMP,
+					  &fg->thermal_board_nb);
+
+	cancel_delayed_work_sync(&fg->monitor_work);
+	cancel_delayed_work_sync(&fg->ota_update_work);
+	cancel_delayed_work_sync(&fg->dtpt_monitor_work);
+	cancel_delayed_work_sync(&fg->reset_default_work);
+	cancel_delayed_work_sync(&fg->delay_reset_full_flag_work);
+	cancel_delayed_work_sync(&fg->force_report_full_work);
+	cancel_delayed_work_sync(&fg->fl4p0_calibration_work);
+	cancel_delayed_work_sync(&fg->batt_abnormal_dfx_work);
+
 	return 0;
 }
 
