@@ -354,6 +354,10 @@ static void mca_adsp_glink_sync_work(struct work_struct *work)
 		if (node->cb->sync_data_cb)
 			node->cb->sync_data_cb(node->data);
 	}
+	list_for_each_entry(node, &mca_adsp_glink_qbg_ops_list, node) {
+		if (node->cb->sync_data_cb)
+			node->cb->sync_data_cb(node->data);
+	}
 	mutex_unlock(&mca_adsp_glink_ops_lock);
 }
 
@@ -363,6 +367,10 @@ static void mca_adsp_glink_down_work(struct work_struct *work)
 
 	mutex_lock(&mca_adsp_glink_ops_lock);
 	list_for_each_entry(node, &mca_adsp_glink_ops_list, node) {
+		if (node->cb->glink_down_cb)
+			node->cb->glink_down_cb(node->data);
+	}
+	list_for_each_entry(node, &mca_adsp_glink_qbg_ops_list, node) {
 		if (node->cb->glink_down_cb)
 			node->cb->glink_down_cb(node->data);
 	}
