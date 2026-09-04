@@ -78,6 +78,9 @@
 /* How long to wait before pushing the configuration across again. */
 #define SUBPMIC_SYNC_RETRY_MS		1000
 
+/* How long the first configuration push waits behind the type probe. */
+#define SUBPMIC_SYNC_START_MS		100
+
 /* The ADSP reports voltages in microvolts; the stack works in millivolts. */
 #define UV_PER_MV			1000
 
@@ -1551,7 +1554,8 @@ static int qcom_subpmic_probe(struct platform_device *pdev)
 
 	/* Read what is attached now rather than waiting to be told. */
 	queue_delayed_work(system_wq, &subpmic->usb_type_work, 0);
-	queue_delayed_work(system_wq, &subpmic->sync_cfg_work, 0);
+	queue_delayed_work(system_wq, &subpmic->sync_cfg_work,
+			   msecs_to_jiffies(SUBPMIC_SYNC_START_MS));
 
 	mca_log_info("probe ok\n");
 
