@@ -589,10 +589,10 @@ mca_wireless_charger_thermal_handle_limit(struct mca_thermal_info *chip)
 	 */
 	mca_strategy_func_process(STRATEGY_FUNC_TYPE_QUICK_WIRELESS,
 				  STRATEGY_PROCESS_THERMAL_LEVEL,
-				  level >= chip->wireless_phone_level);
+				  level > chip->wireless_phone_level);
 	mca_strategy_func_process(STRATEGY_FUNC_TYPE_BASIC_WIRELESS,
 				  STRATEGY_PROCESS_THERMAL_LEVEL,
-				  level >= chip->wireless_phone_level);
+				  level > chip->wireless_phone_level);
 
 	if (!chip->wls_online) {
 		mca_log_err("charger is not online\n");
