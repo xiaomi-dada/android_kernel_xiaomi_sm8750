@@ -23,6 +23,9 @@
 
 /* The longest request userspace may write. */
 #define MCA_CHARGE_IF_INPUT_MAX		64
+/* What the vendor driver fills in for a bare ship-mode write. */
+#define MCA_CHARGE_IF_SHIPMODE_USER	"micharge"
+#define MCA_CHARGE_IF_SHIPMODE_TYPE	"buck"
 
 /* How much of one path's answer is kept, and how long a reported line is. */
 #define MCA_CHARGE_IF_STATE_MAX		128
@@ -256,8 +259,20 @@ static ssize_t mca_charge_if_sysfs_store(struct device *dev,
 	memcpy(input, buf, count);
 	input[count] = '\0';
 
-	if (sscanf(input, "%s %s %s", user, type_name, value) != 3)
-		return -EINVAL;
+	/*
+	 * Ship mode is written by service tooling that sends the value on its
+	 * own, so the client and the path it applies to are supplied here when
+	 * they are missing.  Every other node takes all three.
+	 */
+	if (sscanf(input, "%63s %63s %63s", user, type_name, value) != 3) {
+		if (info->sysfs_attr_name != MCA_CHRAGE_IF_SYSFS_SHIPMODE ||
+		    sscanf(input, "%63s", value) != 1)
+			return -EINVAL;
+
+		strscpy(user, MCA_CHARGE_IF_SHIPMODE_USER, sizeof(user));
+		strscpy(type_name, MCA_CHARGE_IF_SHIPMODE_TYPE,
+			sizeof(type_name));
+	}
 
 	type = mca_charge_if_get_op_type(type_name);
 	mca_log_info("user %s set node %d type %d value %s\n", user,
