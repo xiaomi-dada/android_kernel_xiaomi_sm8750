@@ -2309,62 +2309,6 @@ static int fg_read_first_usage_date(struct bq_fg_chip *bq, u8 *buf)
 /* YYYYMMDD, and the packing in both writers depends on exactly that. */
 #define FG_USAGE_DATE_LEN		8
 
-static void fg_write_fake_first_usage_date(struct bq_fg_chip *bq, const char *buf, size_t size)
-{
-	int ret, len;
-	unsigned char data[32] = { 0 };
-	char *tmp_buf = NULL;
-	size_t i;
-
-	tmp_buf = kzalloc(size + 1, GFP_KERNEL);
-	if (!tmp_buf)
-		return;
-
-	strscpy(tmp_buf, buf, size + 1);
-	len = strnlen(tmp_buf, size);
-	mca_log_info("write first_usage_date=%s,len=%d\n", tmp_buf, len);
-
-	/*
-	 * The eight characters are indexed directly when the date is packed
-	 * below, so anything shorter would be read past the end of this
-	 * allocation, and a non-digit would pack into a nonsense date.
-	 */
-	if (len != FG_USAGE_DATE_LEN) {
-		mca_log_err("Invalid date input: %s\n", tmp_buf);
-		goto out;
-	}
-
-	for (i = 0; i < (size_t)len; i++) {
-		if (!isdigit(tmp_buf[i])) {
-			mca_log_err("input is not all digits! errorstr = %s size = [%d]\n",
-				    tmp_buf, (int)size);
-			goto out;
-		}
-	}
-
-	ret = fg_mac_read_block(bq, FG_MAC_CMD_UI_SOH, data, 32);
-	if (ret < 0) {
-		mca_log_info("failed to get first_usage\n");
-		goto out;
-	}
-
-	/*example,20241220,2024(0x34)1(0x31)2(0x32)2(0x32)0(0x30)*/
-	data[11] = (tmp_buf[3] & 0xF);
-	data[13] = (tmp_buf[6] & 0xF) * 10 + (tmp_buf[7] & 0xF);
-
-	if (tmp_buf[4] == 0x31)
-		data[12] = 0x0A;
-	else
-		data[12] = 0x00;
-
-	data[12] = data[12] + (tmp_buf[5] & 0xF);
-
-	if (fg_mac_write_block(bq, FG_MAC_CMD_UI_SOH, data, 32))
-		mca_log_err("write first_usage_date failed\n");
-out:
-	kfree(tmp_buf);
-}
-
 static void fg_write_first_usage_date(struct bq_fg_chip *bq, const char *buf, size_t size)
 {
 	int ret, len;
@@ -5703,7 +5647,6 @@ struct mca_sysfs_attr_info fg_sysfs_field_tbl[] = {
 	mca_sysfs_attr_ro(fg_sysfs, 0440, FG_IC_PROP_BATT_SN, batt_sn),
 	mca_sysfs_attr_ro(fg_sysfs, 0440, FG_IC_PROP_MANUFACTURING_DATE, manufacturing_date),
 	mca_sysfs_attr_rw(fg_sysfs, 0664, FG_IC_PROP_FIRST_USAGE_DATE, first_usage_date),
-	mca_sysfs_attr_rw(fg_sysfs, 0664, FG_IC_PROP_FAKE_FIRST_USAGE_DATE, fake_first_usage_date),
 	mca_sysfs_attr_ro(fg_sysfs, 0440, FG_IC_PROP_SOH_NEW, soh_new),
 	mca_sysfs_attr_rw(fg_sysfs, 0664, FG_IC_PROP_DOD_COUNT, dod_count),
 	mca_sysfs_attr_rw(fg_sysfs, 0664, FG_IC_PROP_COUNT_LEVEL1, count_level1),
@@ -5938,11 +5881,6 @@ static ssize_t fg_sysfs_show(struct device *dev,
 		break;
 	case FG_IC_PROP_FIRST_USAGE_DATE:
 		fg_read_first_usage_date(info, data);
-		count = scnprintf(buf, PAGE_SIZE, "%s\n", data);
-		break;
-	case FG_IC_PROP_FAKE_FIRST_USAGE_DATE:
-		if (fg_read_first_usage_date(info, data))
-			return -1;
 		count = scnprintf(buf, PAGE_SIZE, "%s\n", data);
 		break;
 	case FG_IC_PROP_SOH_NEW:
@@ -6297,9 +6235,6 @@ static ssize_t fg_sysfs_store(struct device *dev,
 		break;
 	case FG_IC_PROP_FIRST_USAGE_DATE:
 		fg_write_first_usage_date(info, buf, count);
-		break;
-	case FG_IC_PROP_FAKE_FIRST_USAGE_DATE:
-		fg_write_fake_first_usage_date(info, buf, count);
 		break;
 	case FG_IC_PROP_START_LEARNING:
 		fg_set_start_learning(info);
