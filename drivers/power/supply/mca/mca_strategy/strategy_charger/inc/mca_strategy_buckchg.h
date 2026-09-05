@@ -136,7 +136,6 @@ enum mca_buckchg_battery_type {
 #define BUCKCHG_CP_ABSENT_RETRY_MAX	6
 #define ALLOW_FFC_TEMP_LOW_THR    20
 #define ALLOW_FFC_TEMP_HIGH_THR    48
-#define CHARGE_BATT_USE_SC6601A_BUCK 0
 #define PMIC_ITERM_COMPENSATION_DEFAULT 30
 #define BAT_TEMP_FV_COMP_HOT_TH_DEFAULT 50
 /* How long after boot a pack started from zero still needs an input floor. */
@@ -416,7 +415,6 @@ struct strategy_buckchg_dev {
 	bool sw_cv_running;
 	bool is_non_compliant_qc;
 	bool non_compliant_run_once;
-	unsigned int use_sc_buck;
 	int hw_bc12;
 	int vbat_fg_to_pmic_ratio;
 	int vote_buck_vterm_buf;
